@@ -10,5 +10,6 @@ Options -MultiViews
     RewriteRule ^ - [L]
 
     RewriteRule ^favicon\.ico$ /assets/img/favicon.svg [L]
+    RewriteRule ^wp-content/uploads/.*\.(jpe?g|png|gif|webp|svg)$ /assets/img/og-default.png [L,NC]
     RewriteRule ^ index.php [L]
 </IfModule>
