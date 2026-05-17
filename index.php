@@ -3,6 +3,30 @@ declare(strict_types=1);
 
 session_start();
 
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) === 0;
+    }
+}
+
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+        return substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
 const APP_NAME = 'Bigevent Organizer';
 const ADMIN_EMAIL = 'admin@bigevent.local';
 const ADMIN_PASSWORD = 'admin12345';
@@ -80,7 +104,7 @@ function db(): PDO
     return $pdo;
 }
 
-function app_config(string $key, mixed $default = null): mixed
+function app_config(string $key, $default = null)
 {
     global $appConfig;
 
@@ -626,13 +650,13 @@ function schema_extra(): array
     return $GLOBALS['schema_extra'] ?? [];
 }
 
-function redirect(string $to): never
+function redirect(string $to)
 {
     header('Location: ' . $to);
     exit;
 }
 
-function json_response(array $payload, int $status = 200): never
+function json_response(array $payload, int $status = 200)
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=UTF-8');
@@ -3712,7 +3736,7 @@ function notify_crm_inquiry(int $id): void
     }
 }
 
-function robots_txt(): never
+function robots_txt()
 {
     header('Content-Type: text/plain; charset=UTF-8');
     echo "User-agent: *\n";
@@ -3722,7 +3746,7 @@ function robots_txt(): never
     exit;
 }
 
-function sitemap_xml(): never
+function sitemap_xml()
 {
     $urls = [];
     foreach (['/', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
@@ -4131,7 +4155,7 @@ function admin_crm(): void
     });
 }
 
-function export_crm_csv(): never
+function export_crm_csv()
 {
     require_admin();
     $statusFilter = (string) ($_GET['status'] ?? '');
@@ -4456,7 +4480,7 @@ function create_backup(): void
     redirect('/admin/backup');
 }
 
-function download_backup(): never
+function download_backup()
 {
     require_admin();
     $file = basename(rawurldecode((string) ($_GET['file'] ?? '')));
@@ -5025,12 +5049,12 @@ function admin_form(string $resource, ?int $id = null): void
     });
 }
 
-function input(string $name, string $label, mixed $value = '', string $type = 'text'): string
+function input(string $name, string $label, $value = '', string $type = 'text'): string
 {
     return '<div><label class="admin-label">' . e($label) . '</label><input class="admin-field" type="' . e($type) . '" name="' . e($name) . '" value="' . e((string)$value) . '"></div>';
 }
 
-function textarea(string $name, string $label, mixed $value = '', string $class = ''): string
+function textarea(string $name, string $label, $value = '', string $class = ''): string
 {
     return '<div class="' . e($class) . '"><label class="admin-label">' . e($label) . '</label><textarea class="admin-field min-h-32" name="' . e($name) . '">' . e((string)$value) . '</textarea></div>';
 }
@@ -5554,7 +5578,7 @@ function delete_gallery_image(string $resource): void
     redirect('/admin/' . $resource . '/edit?id=' . $ownerId);
 }
 
-function redirect_short_link(string $lang, string $type, int $id): never
+function redirect_short_link(string $lang, string $type, int $id)
 {
     $lang = $lang === 'en' ? 'en' : 'th';
     if ($type === 'p') {
@@ -5578,7 +5602,7 @@ function redirect_short_link(string $lang, string $type, int $id): never
     not_found();
 }
 
-function not_found(): never
+function not_found()
 {
     http_response_code(404);
     layout('ไม่พบหน้า', function () {
