@@ -141,9 +141,15 @@ function db_identifier(string $name): string
 function db_column_exists(PDO $pdo, string $table, string $column): bool
 {
     if (db_is_mysql($pdo)) {
-        $stmt = $pdo->prepare('SHOW COLUMNS FROM ' . db_identifier($table) . ' LIKE ?');
-        $stmt->execute([$column]);
-        return (bool) $stmt->fetch();
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+        ");
+        $stmt->execute([$table, $column]);
+        return (int) $stmt->fetchColumn() > 0;
     }
 
     $columns = $pdo->query('PRAGMA table_info(' . db_identifier($table) . ')')->fetchAll();
@@ -153,9 +159,15 @@ function db_column_exists(PDO $pdo, string $table, string $column): bool
 function db_create_index(PDO $pdo, string $name, string $table, array $columns): void
 {
     if (db_is_mysql($pdo)) {
-        $stmt = $pdo->prepare('SHOW INDEX FROM ' . db_identifier($table) . ' WHERE Key_name = ?');
-        $stmt->execute([$name]);
-        if ($stmt->fetch()) {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND INDEX_NAME = ?
+        ");
+        $stmt->execute([$table, $name]);
+        if ((int) $stmt->fetchColumn() > 0) {
             return;
         }
         $columnSql = implode(', ', array_map(fn (string $column): string => db_identifier($column), $columns));
