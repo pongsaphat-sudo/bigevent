@@ -1,0 +1,11 @@
+storage/*.sqlite
+storage/*.sqlite-*
+storage/backups/*.sqlite
+storage/backups/*.sqlite-*
+storage/*.log
+database.sqlite
+uploads/*
+!uploads/.gitkeep
+.playwright-cli/
+output/
+.DS_Store

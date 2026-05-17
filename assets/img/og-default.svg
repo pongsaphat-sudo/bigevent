@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Bigevent Organizer">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <rect x="72" y="72" width="1056" height="486" rx="44" fill="#f6f4ef"/>
+  <circle cx="168" cy="174" r="52" fill="#0f172a"/>
+  <text x="168" y="188" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="800" fill="#ffffff">BE</text>
+  <text x="246" y="174" font-family="Arial, sans-serif" font-size="48" font-weight="800" fill="#0f172a">Bigevent Organizer</text>
+  <text x="246" y="226" font-family="Arial, sans-serif" font-size="28" font-weight="600" fill="#64748b">Design. Produce. Deliver.</text>
+  <text x="120" y="390" font-family="Arial, sans-serif" font-size="58" font-weight="800" fill="#111827">Full-service Event Organizer</text>
+  <text x="120" y="452" font-family="Arial, sans-serif" font-size="30" font-weight="600" fill="#e15b4f">Corporate Event · Product Launch · Exhibition</text>
+</svg>
