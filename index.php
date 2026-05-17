@@ -11,6 +11,15 @@ const CRM_NOTIFICATION_EMAIL = 'Contact@bigevent.co.th';
 const CRM_LINE_WEBHOOK_ENV = 'CRM_LINE_WEBHOOK_URL';
 const APP_ENV_ENV = 'APP_ENV';
 
+$appConfig = [];
+$configPath = __DIR__ . '/config.php';
+if (is_file($configPath)) {
+    $loadedConfig = require $configPath;
+    if (is_array($loadedConfig)) {
+        $appConfig = $loadedConfig;
+    }
+}
+
 $root = __DIR__;
 $storageDir = $root . '/storage';
 $uploadDir = $root . '/uploads';
@@ -40,16 +49,199 @@ function db(): PDO
         return $pdo;
     }
 
-    $pdo = new PDO('sqlite:' . __DIR__ . '/storage/database.sqlite');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $driver = strtolower((string) app_config('db_driver', 'sqlite'));
+    if ($driver === 'mysql') {
+        $host = (string) app_config('db_host', 'localhost');
+        $port = (string) app_config('db_port', '3306');
+        $name = (string) app_config('db_name', '');
+        $charset = (string) app_config('db_charset', 'utf8mb4');
+        $user = (string) app_config('db_user', '');
+        $password = (string) app_config('db_password', '');
+        if ($name === '' || $user === '') {
+            throw new RuntimeException('MySQL config is missing db_name or db_user.');
+        }
+        $pdo = new PDO(
+            "mysql:host={$host};port={$port};dbname={$name};charset={$charset}",
+            $user,
+            $password,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]
+        );
+    } else {
+        $pdo = new PDO('sqlite:' . __DIR__ . '/storage/database.sqlite');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    }
+
     migrate($pdo);
     return $pdo;
 }
 
+function app_config(string $key, mixed $default = null): mixed
+{
+    global $appConfig;
+
+    $envKeys = ['DB_' . strtoupper(str_replace('db_', '', $key)), strtoupper($key)];
+    if ($key === 'db_name') {
+        $envKeys[] = 'DB_DATABASE';
+    }
+    if ($key === 'db_user') {
+        $envKeys[] = 'DB_USERNAME';
+    }
+    foreach (array_unique($envKeys) as $envKey) {
+        $value = getenv($envKey);
+        if ($value !== false && $value !== '') {
+            return $value;
+        }
+    }
+
+    return $appConfig[$key] ?? $default;
+}
+
+function db_is_mysql(PDO $pdo): bool
+{
+    return strtolower((string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) === 'mysql';
+}
+
+function db_identifier(string $name): string
+{
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+        throw new InvalidArgumentException('Invalid database identifier.');
+    }
+    return '`' . $name . '`';
+}
+
+function db_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    if (db_is_mysql($pdo)) {
+        $stmt = $pdo->prepare('SHOW COLUMNS FROM ' . db_identifier($table) . ' LIKE ?');
+        $stmt->execute([$column]);
+        return (bool) $stmt->fetch();
+    }
+
+    $columns = $pdo->query('PRAGMA table_info(' . db_identifier($table) . ')')->fetchAll();
+    return in_array($column, array_column($columns, 'name'), true);
+}
+
+function db_create_index(PDO $pdo, string $name, string $table, array $columns): void
+{
+    if (db_is_mysql($pdo)) {
+        $stmt = $pdo->prepare('SHOW INDEX FROM ' . db_identifier($table) . ' WHERE Key_name = ?');
+        $stmt->execute([$name]);
+        if ($stmt->fetch()) {
+            return;
+        }
+        $columnSql = implode(', ', array_map(fn (string $column): string => db_identifier($column), $columns));
+        $pdo->exec('CREATE INDEX ' . db_identifier($name) . ' ON ' . db_identifier($table) . ' (' . $columnSql . ')');
+        return;
+    }
+
+    $columnSql = implode(', ', array_map(fn (string $column): string => db_identifier($column), $columns));
+    $pdo->exec('CREATE INDEX IF NOT EXISTS ' . db_identifier($name) . ' ON ' . db_identifier($table) . ' (' . $columnSql . ')');
+}
+
 function migrate(PDO $pdo): void
 {
-    $pdo->exec("
+    if (db_is_mysql($pdo)) {
+        foreach ([
+            "CREATE TABLE IF NOT EXISTS users (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(40) NOT NULL DEFAULT 'super_admin',
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS banners (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                title TEXT NOT NULL,
+                subtitle TEXT NULL,
+                cta_label VARCHAR(255) NULL,
+                cta_url TEXT NULL,
+                image_path TEXT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS portfolios (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                title TEXT NOT NULL,
+                slug VARCHAR(255) NULL,
+                category VARCHAR(255) NULL,
+                client VARCHAR(255) NULL,
+                location VARCHAR(255) NULL,
+                event_date VARCHAR(40) NULL,
+                description MEDIUMTEXT NULL,
+                video_url TEXT NULL,
+                video_url_en TEXT NULL,
+                image_path TEXT NULL,
+                is_featured TINYINT(1) NOT NULL DEFAULT 0,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_portfolios_slug (slug)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS clients (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                logo_path TEXT NULL,
+                website TEXT NULL,
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS articles (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                title TEXT NOT NULL,
+                slug VARCHAR(255) NOT NULL UNIQUE,
+                excerpt TEXT NULL,
+                content MEDIUMTEXT NULL,
+                image_path TEXT NULL,
+                is_published TINYINT(1) NOT NULL DEFAULT 1,
+                published_at VARCHAR(40) NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS gallery_images (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                owner_type VARCHAR(40) NOT NULL,
+                owner_id INT UNSIGNED NOT NULL,
+                image_path TEXT NOT NULL,
+                caption TEXT NULL,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_gallery_owner (owner_type, owner_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS inquiries (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                phone VARCHAR(80) NULL,
+                email VARCHAR(255) NULL,
+                event_type VARCHAR(255) NULL,
+                event_date VARCHAR(40) NULL,
+                venue TEXT NULL,
+                guest_count VARCHAR(80) NULL,
+                budget VARCHAR(120) NULL,
+                message MEDIUMTEXT NULL,
+                status VARCHAR(40) NOT NULL DEFAULT 'new',
+                admin_note MEDIUMTEXT NULL,
+                source_path TEXT NULL,
+                viewed_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS system_settings (
+                setting_key VARCHAR(191) NOT NULL PRIMARY KEY,
+                setting_value MEDIUMTEXT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        ] as $sql) {
+            $pdo->exec($sql);
+        }
+    } else {
+        $pdo->exec("
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -146,32 +338,30 @@ function migrate(PDO $pdo): void
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
     ");
+    }
 
-    $userColumns = $pdo->query("PRAGMA table_info(users)")->fetchAll();
-    $userColumnNames = array_column($userColumns, 'name');
-    if (!in_array('role', $userColumnNames, true)) {
-        $pdo->exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'admin'");
-        $pdo->exec("UPDATE users SET role = 'super_admin' WHERE id = (SELECT id FROM users ORDER BY id ASC LIMIT 1)");
+    if (!db_column_exists($pdo, 'users', 'role')) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN role VARCHAR(40) NOT NULL DEFAULT 'admin'");
+        $firstUserId = (int) $pdo->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetchColumn();
+        if ($firstUserId > 0) {
+            $stmt = $pdo->prepare("UPDATE users SET role = 'super_admin' WHERE id = ?");
+            $stmt->execute([$firstUserId]);
+        }
         $pdo->exec("UPDATE users SET role = 'super_admin' WHERE email = " . $pdo->quote(ADMIN_EMAIL));
     }
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_inquiries_status_created ON inquiries (status, created_at)");
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_inquiries_email ON inquiries (email)");
-    $pdo->exec("CREATE INDEX IF NOT EXISTS idx_inquiries_phone ON inquiries (phone)");
-    $inquiryColumns = array_column($pdo->query("PRAGMA table_info(inquiries)")->fetchAll(), 'name');
-    if (!in_array('viewed_at', $inquiryColumns, true)) {
-        $pdo->exec("ALTER TABLE inquiries ADD COLUMN viewed_at TEXT");
+    db_create_index($pdo, 'idx_inquiries_status_created', 'inquiries', ['status', 'created_at']);
+    db_create_index($pdo, 'idx_inquiries_email', 'inquiries', ['email']);
+    db_create_index($pdo, 'idx_inquiries_phone', 'inquiries', ['phone']);
+    if (!db_column_exists($pdo, 'inquiries', 'viewed_at')) {
+        $pdo->exec("ALTER TABLE inquiries ADD COLUMN viewed_at " . (db_is_mysql($pdo) ? "DATETIME NULL" : "TEXT"));
     }
 
-    $articleColumns = $pdo->query("PRAGMA table_info(articles)")->fetchAll();
-    $articleColumnNames = array_column($articleColumns, 'name');
-    if (!in_array('sort_order', $articleColumnNames, true)) {
+    if (!db_column_exists($pdo, 'articles', 'sort_order')) {
         $pdo->exec("ALTER TABLE articles ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
     }
 
-    $portfolioColumns = $pdo->query("PRAGMA table_info(portfolios)")->fetchAll();
-    $portfolioColumnNames = array_column($portfolioColumns, 'name');
-    if (!in_array('slug', $portfolioColumnNames, true)) {
-        $pdo->exec("ALTER TABLE portfolios ADD COLUMN slug TEXT");
+    if (!db_column_exists($pdo, 'portfolios', 'slug')) {
+        $pdo->exec("ALTER TABLE portfolios ADD COLUMN slug " . (db_is_mysql($pdo) ? "VARCHAR(255) NULL" : "TEXT"));
     }
 
     $localizedColumns = [
@@ -214,10 +404,9 @@ function migrate(PDO $pdo): void
     ];
 
     foreach ($localizedColumns as $table => $columns) {
-        $existing = array_column($pdo->query("PRAGMA table_info({$table})")->fetchAll(), 'name');
         foreach ($columns as $column => $type) {
-            if (!in_array($column, $existing, true)) {
-                $pdo->exec("ALTER TABLE {$table} ADD COLUMN {$column} {$type}");
+            if (!db_column_exists($pdo, $table, $column)) {
+                $pdo->exec("ALTER TABLE " . db_identifier($table) . " ADD COLUMN " . db_identifier($column) . " {$type}");
             }
         }
     }
@@ -747,11 +936,20 @@ function setting(string $key, ?string $fallback = null): string
 
 function save_setting(string $key, string $value): void
 {
-    $stmt = db()->prepare("
-        INSERT INTO system_settings (setting_key, setting_value, updated_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP
-    ");
+    $pdo = db();
+    if (db_is_mysql($pdo)) {
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (setting_key, setting_value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = CURRENT_TIMESTAMP
+        ");
+    } else {
+        $stmt = $pdo->prepare("
+            INSERT INTO system_settings (setting_key, setting_value, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP
+        ");
+    }
     $stmt->execute([$key, $value]);
 }
 
@@ -3850,9 +4048,10 @@ function admin_crm(): void
     $countStmt = db()->prepare("SELECT COUNT(*) FROM inquiries" . $whereSql);
     $countStmt->execute($params);
     $total = (int) $countStmt->fetchColumn();
-    $sql = "SELECT * FROM inquiries" . $whereSql . " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+    $offset = ($page - 1) * $perPage;
+    $sql = "SELECT * FROM inquiries" . $whereSql . " ORDER BY created_at DESC, id DESC LIMIT " . (int) $perPage . " OFFSET " . (int) $offset;
     $stmt = db()->prepare($sql);
-    $stmt->execute([...$params, $perPage, ($page - 1) * $perPage]);
+    $stmt->execute($params);
     $rows = $stmt->fetchAll();
     admin_layout('CRM ลูกค้า', function () use ($rows, $statusFilter, $keyword, $total, $page, $perPage) {
         ?>
@@ -4194,13 +4393,16 @@ function delete_crm(): void
 
 function admin_backup(): void
 {
-    $files = glob(__DIR__ . '/storage/backups/*.sqlite') ?: [];
+    $files = array_merge(
+        glob(__DIR__ . '/storage/backups/*.sqlite') ?: [],
+        glob(__DIR__ . '/storage/backups/*.sql') ?: []
+    );
     rsort($files);
     admin_layout('Backup ฐานข้อมูล', function () use ($files) {
         ?>
         <div class="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-                <p class="text-sm font-semibold text-slate-500">สำรองฐานข้อมูล SQLite ก่อนแก้ไขใหญ่หรือก่อนขึ้น Production</p>
+                <p class="text-sm font-semibold text-slate-500">สำรองฐานข้อมูลก่อนแก้ไขใหญ่หรือก่อนขึ้น Production</p>
                 <p class="mt-1 text-xs font-semibold text-slate-400">ไฟล์จะถูกเก็บไว้ใน storage/backups</p>
             </div>
             <form method="post" action="/admin/backup/create">
@@ -4236,9 +4438,17 @@ function create_backup(): void
 {
     require_admin();
     verify_csrf();
-    $source = __DIR__ . '/storage/database.sqlite';
-    $target = __DIR__ . '/storage/backups/database-' . date('Ymd-His') . '.sqlite';
-    if (is_file($source) && copy($source, $target)) {
+
+    if (db_is_mysql(db())) {
+        $target = __DIR__ . '/storage/backups/database-' . date('Ymd-His') . '.sql';
+        $ok = (bool) file_put_contents($target, database_dump_sql());
+    } else {
+        $source = __DIR__ . '/storage/database.sqlite';
+        $target = __DIR__ . '/storage/backups/database-' . date('Ymd-His') . '.sqlite';
+        $ok = is_file($source) && copy($source, $target);
+    }
+
+    if ($ok) {
         flash('สร้าง Backup เรียบร้อยแล้ว');
     } else {
         flash('ไม่สามารถสร้าง Backup ได้', 'error');
@@ -4250,18 +4460,44 @@ function download_backup(): never
 {
     require_admin();
     $file = basename(rawurldecode((string) ($_GET['file'] ?? '')));
-    if (!preg_match('/^database-\d{8}-\d{6}\.sqlite$/', $file)) {
+    if (!preg_match('/^database-\d{8}-\d{6}\.(sqlite|sql)$/', $file)) {
         not_found();
     }
     $path = __DIR__ . '/storage/backups/' . $file;
     if (!is_file($path)) {
         not_found();
     }
-    header('Content-Type: application/octet-stream');
+    header('Content-Type: ' . (str_ends_with($file, '.sql') ? 'application/sql; charset=UTF-8' : 'application/octet-stream'));
     header('Content-Disposition: attachment; filename="' . $file . '"');
     header('Content-Length: ' . filesize($path));
     readfile($path);
     exit;
+}
+
+function database_dump_sql(): string
+{
+    $pdo = db();
+    $tables = ['users', 'banners', 'portfolios', 'clients', 'articles', 'gallery_images', 'inquiries', 'system_settings'];
+    $sql = "-- Bigevent database backup\n-- Generated: " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
+
+    foreach ($tables as $table) {
+        $rows = $pdo->query('SELECT * FROM ' . db_identifier($table))->fetchAll();
+        if (!$rows) {
+            continue;
+        }
+        $sql .= "DELETE FROM " . db_identifier($table) . ";\n";
+        foreach ($rows as $row) {
+            $columns = array_keys($row);
+            $values = array_map(
+                fn ($value): string => $value === null ? 'NULL' : $pdo->quote((string) $value),
+                array_values($row)
+            );
+            $sql .= 'INSERT INTO ' . db_identifier($table) . ' (' . implode(', ', array_map('db_identifier', $columns)) . ') VALUES (' . implode(', ', $values) . ");\n";
+        }
+        $sql .= "\n";
+    }
+
+    return $sql . "SET FOREIGN_KEY_CHECKS=1;\n";
 }
 
 function password_form(): void
@@ -4591,8 +4827,8 @@ function admin_resource(string $resource): void
     $page = current_page();
     $perPage = per_page();
     $total = (int) db()->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
-    $stmt = db()->prepare("SELECT * FROM {$table} ORDER BY sort_order ASC, id DESC LIMIT ? OFFSET ?");
-    $stmt->execute([$perPage, ($page - 1) * $perPage]);
+    $offset = ($page - 1) * $perPage;
+    $stmt = db()->query("SELECT * FROM {$table} ORDER BY sort_order ASC, id DESC LIMIT " . (int) $perPage . " OFFSET " . (int) $offset);
     $rows = $stmt->fetchAll();
     admin_layout(resource_label($resource), function () use ($resource, $rows, $total, $page, $perPage) {
         ?>

@@ -3,7 +3,9 @@ storage/*.sqlite-*
 storage/backups/*.sqlite
 storage/backups/*.sqlite-*
 storage/*.log
+storage/*.sql
 database.sqlite
+config.php
 uploads/*
 !uploads/.gitkeep
 .playwright-cli/
