@@ -1409,7 +1409,25 @@ function apply_gallery_order(string $ownerType, int $ownerId, string $order): ?s
 
 function image_src(?string $path): string
 {
-    return $path ?: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80';
+    $fallback = '/assets/img/og-default.png';
+    $path = trim((string) $path);
+    if ($path === '') {
+        return $fallback;
+    }
+
+    $host = parse_url(base_url(), PHP_URL_HOST);
+    $pathHost = parse_url($path, PHP_URL_HOST);
+    $pathOnly = parse_url($path, PHP_URL_PATH);
+    if ($pathOnly && ($pathHost === $host || $pathHost === 'www.bigevent.co.th' || $pathHost === 'bigevent.co.th')) {
+        $localPath = __DIR__ . $pathOnly;
+        return is_file($localPath) ? $pathOnly : $fallback;
+    }
+
+    if (str_starts_with($path, '/')) {
+        return is_file(__DIR__ . $path) ? $path : $fallback;
+    }
+
+    return $path;
 }
 
 function portfolio_url(array $item): string
@@ -1796,7 +1814,7 @@ function layout(string $title, callable $content, string $description = '', stri
             <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
                 <a href="<?= e(url_for('/')) ?>" class="flex items-center gap-3">
                     <span class="grid h-10 w-10 place-items-center overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                        <img src="https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png" alt="Big Event Logo" class="h-10 w-10 object-contain">
+                        <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png')) ?>" alt="Big Event Logo" class="h-10 w-10 object-contain">
                     </span>
                     <span>
                         <span class="block text-sm font-extrabold tracking-wide">Bigevent</span>
@@ -1864,7 +1882,7 @@ function layout(string $title, callable $content, string $description = '', stri
                 <div>
                     <div class="mb-4 flex items-center gap-3">
                         <span class="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl bg-white">
-                            <img src="https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png" alt="Big Event Logo" class="h-11 w-11 object-contain">
+                            <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png')) ?>" alt="Big Event Logo" class="h-11 w-11 object-contain">
                         </span>
                         <div>
                             <div class="font-extrabold">Bigevent Organizer</div>
@@ -2988,7 +3006,7 @@ function about_page(): void
                 <div class="grid max-w-4xl gap-6">
                     <article class="overflow-hidden rounded-[2rem] border border-slate-100 bg-slate-50 shadow-sm">
                         <div class="grid gap-0 sm:grid-cols-[220px_1fr]">
-                            <img src="https://www.bigevent.co.th/wp-content/uploads/2025/06/ว่าที่ร้อยตรีปกป้อง-มกรนันท์.jpg" alt="ว่าที่ร้อยตรีปกป้อง มกรนันท์" class="h-72 w-full object-cover sm:h-full">
+                            <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2025/06/ว่าที่ร้อยตรีปกป้อง-มกรนันท์.jpg')) ?>" alt="ว่าที่ร้อยตรีปกป้อง มกรนันท์" class="h-72 w-full object-cover sm:h-full">
                             <div class="p-7">
                                 <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-coral">Chief Executive Officer</p>
                                 <h3 class="mt-3 text-2xl font-extrabold">ว่าที่ร้อยตรีปกป้อง มกรนันท์</h3>
@@ -3231,7 +3249,7 @@ function services_page(): void
                     <h1 class="mt-4 text-4xl font-extrabold leading-tight sm:text-5xl"><?= current_lang() === 'en' ? 'Full-service event organizer for every requirement.' : 'รับจัดงานอีเว้นท์ บริการครบวงจรสำหรับทุกความต้องการ' ?></h1>
                     <p class="mt-6 text-lg leading-8 text-slate-600"><?= current_lang() === 'en' ? 'Events are essential for business and community communication. Our professional team plans, designs and manages every detail so your event runs smoothly and achieves its goals.' : 'งานอีเว้นท์เป็นส่วนสำคัญของธุรกิจและสังคม ไม่ว่าจะเป็นงานเปิดตัวสินค้า งานประชุมสัมมนา งานแต่งงาน หรือกิจกรรมส่งเสริมการขาย ทีมมืออาชีพช่วยให้ทุกอย่างดำเนินไปอย่างราบรื่นและประสบความสำเร็จตามเป้าหมาย' ?></p>
                 </div>
-                <img src="https://www.bigevent.co.th/wp-content/uploads/2024/08/Big-Event-บิ๊กอีเว้นท์-รับจัดงานอีเว้นท์-3.jpg" alt="รับจัดงานอีเว้นท์ By บิ๊กอีเว้นท์" class="h-full max-h-[460px] w-full rounded-[2rem] object-cover shadow-soft">
+                <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2024/08/Big-Event-บิ๊กอีเว้นท์-รับจัดงานอีเว้นท์-3.jpg')) ?>" alt="รับจัดงานอีเว้นท์ By บิ๊กอีเว้นท์" class="h-full max-h-[460px] w-full rounded-[2rem] object-cover shadow-soft">
             </div>
         </section>
 
@@ -3295,7 +3313,7 @@ function services_page(): void
             </div>
         </section>
         <?php
-    }, $lang === 'en' ? 'Full-service event organizer for planning, creative design, equipment, crew, lighting, sound, stage and on-site event management by BIG EVENT CO., LTD.' : 'รับจัดงานอีเว้นท์ครบวงจร วางแผน ออกแบบ จัดหาอุปกรณ์ ทีมงาน แสง สี เสียง เวที และบริหารจัดการหน้างานโดยบริษัท บิ๊กอีเว้นท์ จำกัด', 'https://www.bigevent.co.th/wp-content/uploads/2024/08/Big-Event-บิ๊กอีเว้นท์-รับจัดงานอีเว้นท์.jpg');
+    }, $lang === 'en' ? 'Full-service event organizer for planning, creative design, equipment, crew, lighting, sound, stage and on-site event management by BIG EVENT CO., LTD.' : 'รับจัดงานอีเว้นท์ครบวงจร วางแผน ออกแบบ จัดหาอุปกรณ์ ทีมงาน แสง สี เสียง เวที และบริหารจัดการหน้างานโดยบริษัท บิ๊กอีเว้นท์ จำกัด', image_src('https://www.bigevent.co.th/wp-content/uploads/2024/08/Big-Event-บิ๊กอีเว้นท์-รับจัดงานอีเว้นท์.jpg'));
 }
 
 function articles_page(): void

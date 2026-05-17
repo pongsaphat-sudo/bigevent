@@ -1,0 +1,14 @@
+DirectoryIndex index.php
+Options -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    RewriteRule ^favicon\.ico$ /assets/img/favicon.svg [L]
+    RewriteRule ^ index.php [L]
+</IfModule>
