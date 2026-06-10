@@ -1601,6 +1601,9 @@ function gallery_section(array $images, string $title = 'Gallery'): string
                             <img src="<?= e($rest[4]['image_path']) ?>" alt="<?= e($rest[4]['caption'] ?: $title) ?>" class="h-48 w-full object-cover opacity-45">
                             <span class="absolute inset-0 grid place-items-center text-xl font-extrabold">+<?= count($rest) - 4 ?> ภาพ</span>
                         </button>
+                        <?php foreach (array_slice($rest, 5) as $image): ?>
+                            <button type="button" class="gallery-trigger hidden" data-gallery-group="<?= e(slugify($title)) ?>" data-image="<?= e($image['image_path']) ?>" data-caption="<?= e($image['caption'] ?: $title) ?>"></button>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -5635,8 +5638,46 @@ function redirect_short_link(string $lang, string $type, int $id)
 function not_found()
 {
     http_response_code(404);
-    layout('ไม่พบหน้า', function () {
-        echo '<section class="px-4 py-24 text-center"><h1 class="text-4xl font-extrabold">ไม่พบหน้าที่ต้องการ</h1><a class="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white" href="/">กลับหน้าแรก</a></section>';
+    $lang = current_lang();
+    $heading = $lang === 'en' ? 'Page Not Found' : 'ไม่พบหน้าที่ต้องการ';
+    $sub = $lang === 'en'
+        ? 'Sorry, the page you are looking for doesn\'t exist or has been moved.'
+        : 'ขออภัย ไม่พบหน้าที่คุณกำลังมองหา หน้านี้อาจถูกลบหรือย้ายไปแล้ว';
+    $btnHome = $lang === 'en' ? 'Back to Home' : 'กลับหน้าแรก';
+    $btnContact = $lang === 'en' ? 'Contact Us' : 'ติดต่อเรา';
+    layout($heading, function () use ($heading, $sub, $btnHome, $btnContact) {
+        ?>
+        <section class="relative flex min-h-[70vh] items-center justify-center overflow-hidden px-4 py-24">
+            <div class="pointer-events-none absolute inset-0 overflow-hidden">
+                <div class="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-sky-100 to-blue-50 opacity-60 blur-3xl"></div>
+                <div class="absolute -bottom-32 -right-32 h-[400px] w-[400px] rounded-full bg-gradient-to-tr from-amber-50 to-orange-100 opacity-50 blur-3xl"></div>
+            </div>
+            <div class="relative z-10 mx-auto max-w-xl text-center">
+                <svg class="mx-auto mb-8 h-48 w-48 drop-shadow-lg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="100" cy="100" r="90" fill="#f0f4f8" stroke="#cbd5e1" stroke-width="2"/>
+                    <text x="100" y="88" text-anchor="middle" font-size="52" font-weight="800" fill="#0f172a" font-family="system-ui, sans-serif">404</text>
+                    <path d="M60 130 Q100 150 140 130" stroke="#94a3b8" stroke-width="3" fill="none" stroke-linecap="round">
+                        <animate attributeName="d" values="M60 130 Q100 150 140 130;M60 132 Q100 145 140 132;M60 130 Q100 150 140 130" dur="3s" repeatCount="indefinite"/>
+                    </path>
+                    <circle cx="75" cy="105" r="5" fill="#334155"/>
+                    <circle cx="125" cy="105" r="5" fill="#334155"/>
+                    <circle cx="77" cy="103" r="1.5" fill="#fff"/>
+                    <circle cx="127" cy="103" r="1.5" fill="#fff"/>
+                </svg>
+                <h1 class="mb-4 bg-gradient-to-r from-slate-900 via-slate-700 to-slate-500 bg-clip-text text-5xl font-extrabold tracking-tight text-transparent md:text-6xl"><?= htmlspecialchars($heading) ?></h1>
+                <p class="mx-auto mb-10 max-w-md text-lg leading-relaxed text-slate-500"><?= htmlspecialchars($sub) ?></p>
+                <div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+                    <a href="/" class="group inline-flex items-center gap-2 rounded-full bg-slate-900 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl">
+                        <svg class="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+                        <?= $btnHome ?>
+                    </a>
+                    <a href="/contact" class="inline-flex items-center gap-2 rounded-full border-2 border-slate-200 bg-white px-7 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md">
+                        <?= $btnContact ?>
+                    </a>
+                </div>
+            </div>
+        </section>
+        <?php
     });
     exit;
 }
