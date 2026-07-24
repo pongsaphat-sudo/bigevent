@@ -3993,10 +3993,63 @@ function contest_page(): void
 
     layout($campaign['seo_title'], function () use ($campaign, $isEn, $flash, $pagePath) {
         ?>
+        <style>
+            @keyframes freshBeatSweep {
+                0% { background-position: -180% 50%; }
+                52%, 100% { background-position: 180% 50%; }
+            }
+            @keyframes freshBeatFloat {
+                0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.55; }
+                50% { transform: translate3d(16px, -18px, 0) rotate(7deg); opacity: 0.95; }
+            }
+            @keyframes freshBeatBeam {
+                0% { transform: translateX(-35%) rotate(-12deg); opacity: 0; }
+                18%, 48% { opacity: 0.5; }
+                100% { transform: translateX(135%) rotate(-12deg); opacity: 0; }
+            }
+            @keyframes freshBeatPulse {
+                0%, 100% { box-shadow: 0 0 0 rgba(248, 113, 113, 0), 0 24px 90px rgba(248, 113, 113, 0.18); }
+                50% { box-shadow: 0 0 42px rgba(253, 224, 71, 0.18), 0 34px 120px rgba(248, 113, 113, 0.36); }
+            }
+            .fresh-hero-word {
+                color: transparent;
+                background-image: linear-gradient(100deg, #fde68a 0%, #fff7cc 18%, #fb7185 34%, #fde68a 52%, #fff 62%, #fde68a 78%, #fb7185 100%);
+                background-size: 220% auto;
+                background-clip: text;
+                -webkit-background-clip: text;
+                animation: freshBeatSweep 5.4s ease-in-out infinite;
+                text-shadow: 0 16px 55px rgba(251, 113, 133, 0.16);
+            }
+            .fresh-beam {
+                animation: freshBeatBeam 7.5s ease-in-out infinite;
+            }
+            .fresh-float-a {
+                animation: freshBeatFloat 8.5s ease-in-out infinite;
+            }
+            .fresh-float-b {
+                animation: freshBeatFloat 10s ease-in-out infinite reverse;
+            }
+            .fresh-prize-card {
+                animation: freshBeatPulse 5.8s ease-in-out infinite;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .fresh-hero-word,
+                .fresh-beam,
+                .fresh-float-a,
+                .fresh-float-b,
+                .fresh-prize-card {
+                    animation: none;
+                }
+            }
+        </style>
         <section class="relative overflow-hidden bg-[#070b18] text-white">
             <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(248,113,113,0.28),transparent_30%),radial-gradient(circle_at_84%_12%,rgba(234,179,8,0.26),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))]"></div>
+            <div class="fresh-beam pointer-events-none absolute -top-28 left-0 h-[150%] w-28 bg-gradient-to-r from-transparent via-white/18 to-transparent blur-sm"></div>
+            <div class="fresh-float-a pointer-events-none absolute left-[12%] top-[18%] h-28 w-28 rounded-full bg-coral/20 blur-3xl"></div>
+            <div class="fresh-float-b pointer-events-none absolute right-[18%] top-[28%] h-36 w-36 rounded-full bg-amber-300/20 blur-3xl"></div>
+            <div class="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:64px_64px]"></div>
             <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#070b18] to-transparent"></div>
-            <div class="relative mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+            <div class="relative mx-auto grid min-h-[720px] max-w-7xl items-center gap-12 px-4 py-16 sm:min-h-[760px] sm:px-6 lg:min-h-[820px] lg:grid-cols-[1.05fr_0.95fr] lg:px-8 xl:min-h-[860px]">
                 <div class="max-w-3xl">
                     <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-amber-200 backdrop-blur">
                         <span class="h-2 w-2 rounded-full bg-coral"></span>
@@ -4004,7 +4057,7 @@ function contest_page(): void
                     </div>
                     <h1 class="mt-6 text-5xl font-black leading-[0.95] tracking-tight sm:text-7xl lg:text-8xl">
                         FRESH <span class="text-coral">BEAT</span><br>
-                        <span class="text-amber-200">COVER DANCE</span>
+                        <span class="fresh-hero-word">COVER DANCE</span>
                     </h1>
                     <p class="mt-6 max-w-2xl text-base font-semibold leading-8 text-slate-200 sm:text-lg">
                         <?= e($campaign['description']) ?>
@@ -4035,7 +4088,7 @@ function contest_page(): void
                 </div>
                 <div class="relative">
                     <div class="absolute -inset-8 rounded-[3rem] bg-coral/20 blur-3xl"></div>
-                    <div class="relative rounded-[2rem] border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
+                    <div class="fresh-prize-card relative rounded-[2rem] border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
                         <div class="rounded-[1.5rem] bg-slate-950/70 p-6">
                             <p class="text-xs font-black uppercase tracking-[0.24em] text-amber-200"><?= $isEn ? 'Event Date' : 'วันแข่งขัน' ?></p>
                             <h2 class="mt-3 text-3xl font-black"><?= e($campaign['date_label']) ?></h2>
