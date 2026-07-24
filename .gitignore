@@ -11,3 +11,5 @@ uploads/*
 .playwright-cli/
 output/
 .DS_Store
+backup_*.tar
+.local-backups/

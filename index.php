@@ -268,6 +268,29 @@ function migrate(PDO $pdo): void
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS contest_entries (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                campaign_slug VARCHAR(191) NOT NULL DEFAULT 'fresh-beat-cover-dance-contest',
+                team_name VARCHAR(255) NOT NULL,
+                cover_song VARCHAR(255) NULL,
+                artist_name VARCHAR(255) NULL,
+                member_count INT NOT NULL DEFAULT 0,
+                contact_name VARCHAR(255) NOT NULL,
+                phone VARCHAR(80) NOT NULL,
+                email VARCHAR(255) NULL,
+                line_id VARCHAR(120) NULL,
+                province VARCHAR(255) NULL,
+                institution VARCHAR(255) NULL,
+                music_url TEXT NULL,
+                message MEDIUMTEXT NULL,
+                members_json MEDIUMTEXT NULL,
+                status VARCHAR(40) NOT NULL DEFAULT 'new',
+                admin_note MEDIUMTEXT NULL,
+                source_path TEXT NULL,
+                viewed_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             "CREATE TABLE IF NOT EXISTS system_settings (
                 setting_key VARCHAR(191) NOT NULL PRIMARY KEY,
                 setting_value MEDIUMTEXT NULL,
@@ -368,6 +391,30 @@ function migrate(PDO $pdo): void
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS contest_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campaign_slug TEXT NOT NULL DEFAULT 'fresh-beat-cover-dance-contest',
+            team_name TEXT NOT NULL,
+            cover_song TEXT,
+            artist_name TEXT,
+            member_count INTEGER NOT NULL DEFAULT 0,
+            contact_name TEXT NOT NULL,
+            phone TEXT NOT NULL,
+            email TEXT,
+            line_id TEXT,
+            province TEXT,
+            institution TEXT,
+            music_url TEXT,
+            message TEXT,
+            members_json TEXT,
+            status TEXT NOT NULL DEFAULT 'new',
+            admin_note TEXT,
+            source_path TEXT,
+            viewed_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS system_settings (
             setting_key TEXT PRIMARY KEY,
             setting_value TEXT,
@@ -388,6 +435,8 @@ function migrate(PDO $pdo): void
     db_create_index($pdo, 'idx_inquiries_status_created', 'inquiries', ['status', 'created_at']);
     db_create_index($pdo, 'idx_inquiries_email', 'inquiries', ['email']);
     db_create_index($pdo, 'idx_inquiries_phone', 'inquiries', ['phone']);
+    db_create_index($pdo, 'idx_contest_entries_campaign_status', 'contest_entries', ['campaign_slug', 'status']);
+    db_create_index($pdo, 'idx_contest_entries_created', 'contest_entries', ['created_at']);
     if (!db_column_exists($pdo, 'inquiries', 'viewed_at')) {
         $pdo->exec("ALTER TABLE inquiries ADD COLUMN viewed_at " . (db_is_mysql($pdo) ? "DATETIME NULL" : "TEXT"));
     }
@@ -782,6 +831,127 @@ function crm_notification_badge(int $count, string $class = ''): string
     return '<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-600 px-2 py-1 text-[11px] font-black leading-none text-white shadow-sm ring-2 ring-white ' . e($class) . '" aria-label="CRM ใหม่ ' . e($label) . ' รายการ"><i data-lucide="bell" class="h-3 w-3"></i><span>' . e($label) . '</span></span>';
 }
 
+function contest_campaign(): array
+{
+    $lang = current_lang();
+    return [
+        'slug' => 'fresh-beat-cover-dance-contest',
+        'title' => 'FRESH BEAT COVER DANCE CONTEST',
+        'heading' => $lang === 'en' ? 'Fresh Beat Cover Dance Contest' : 'ประกวดคัฟเวอร์แดนซ์ Fresh Beat',
+        'eyebrow' => $lang === 'en' ? 'Open stage for every dance crew' : 'เวทีเปิดสำหรับทุกทีมเต้น',
+        'description' => $lang === 'en'
+            ? 'Apply for the open cover dance contest at Big C Amnat Charoen. Build your team, submit your song, and bring your best performance to the stage.'
+            : 'เปิดรับสมัครทีมคัฟเวอร์แดนซ์รุ่น Open ไม่จำกัดอายุและเพศ สมัครง่าย ส่งข้อมูลทีม เพลง และรายชื่อสมาชิก เพื่อขึ้นเวทีที่บิ๊กซีอำนาจเจริญ',
+        'date' => '2026-08-14',
+        'date_label' => $lang === 'en' ? 'Friday, 14 August 2026' : 'วันศุกร์ที่ 14 สิงหาคม 2569',
+        'venue' => $lang === 'en' ? 'Big C Amnat Charoen' : 'ห้างบิ๊กซีอำนาจเจริญ',
+        'seo_title' => seo_setting('contest', 'title', $lang, $lang === 'en' ? 'Fresh Beat Cover Dance Contest | Bigevent Organizer' : 'สมัครประกวด Fresh Beat Cover Dance Contest | Bigevent Organizer'),
+        'seo_description' => seo_setting('contest', 'description', $lang, $lang === 'en'
+            ? 'Register for Fresh Beat Cover Dance Contest, an open cover dance competition at Big C Amnat Charoen on 14 August 2026.'
+            : 'สมัครประกวด Fresh Beat Cover Dance Contest รุ่น Open ไม่จำกัดอายุและเพศ แข่งขันวันที่ 14 สิงหาคม 2569 ณ ห้างบิ๊กซีอำนาจเจริญ'),
+        'prizes' => [
+            ['label' => $lang === 'en' ? 'Winner' : 'ชนะเลิศ', 'amount' => '5,000'],
+            ['label' => $lang === 'en' ? '1st Runner-up' : 'รองชนะเลิศอันดับ 1', 'amount' => '4,000'],
+            ['label' => $lang === 'en' ? '2nd Runner-up' : 'รองชนะเลิศอันดับ 2', 'amount' => '3,000'],
+            ['label' => $lang === 'en' ? 'Honorable Mention x2' : 'ชมเชย 2 รางวัล', 'amount' => '1,000'],
+        ],
+        'scores' => [
+            ['Cover', 25, $lang === 'en' ? 'Similarity to original artist, styling, character and accuracy.' : 'ความเหมือนศิลปินต้นแบบ บุคลิก ลักษณะ ท่าเต้น เสื้อผ้า หน้า ผม'],
+            ['Dance', 25, $lang === 'en' ? 'Dance skill, foundation, strength and technique.' : 'ทักษะการเต้น พื้นฐาน ความแข็งแรง และเทคนิคประกอบการเต้น'],
+            ['Entertain', 20, $lang === 'en' ? 'Audience engagement and entertainment.' : 'ความน่าสนใจ การสื่อสาร และการสร้างความบันเทิงกับผู้ชม'],
+            ['Performance', 10, $lang === 'en' ? 'Stage readiness, teamwork and performance presence.' : 'ความพร้อมเพรียง การประสานงานทีม และบุคลิกภาพบนเวที'],
+            ['Creative', 10, $lang === 'en' ? 'Creative staging, concept and special props.' : 'ความคิดสร้างสรรค์ การออกแบบการแสดง และอุปกรณ์พิเศษ'],
+            ['Costume', 10, $lang === 'en' ? 'Costume, makeup and hair suitability.' : 'ความสวยงามของเสื้อผ้า หน้า ผม และความเหมาะสม'],
+        ],
+    ];
+}
+
+function contest_new_count(): int
+{
+    static $count = null;
+    if ($count !== null) {
+        return $count;
+    }
+
+    $stmt = db()->prepare("SELECT COUNT(*) FROM contest_entries WHERE status = ? AND viewed_at IS NULL");
+    $stmt->execute(['new']);
+    $count = (int) $stmt->fetchColumn();
+    return $count;
+}
+
+function contest_status_label(string $status): string
+{
+    return [
+        'new' => 'ใหม่',
+        'reviewed' => 'ตรวจแล้ว',
+        'contacted' => 'ติดต่อแล้ว',
+        'confirmed' => 'ยืนยันแล้ว',
+        'waitlist' => 'สำรอง',
+        'cancelled' => 'ยกเลิก',
+    ][$status] ?? 'ใหม่';
+}
+
+function contest_status_class(string $status): string
+{
+    return [
+        'new' => 'bg-red-50 text-red-700 ring-red-100',
+        'reviewed' => 'bg-blue-50 text-blue-700 ring-blue-100',
+        'contacted' => 'bg-amber-50 text-amber-700 ring-amber-100',
+        'confirmed' => 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+        'waitlist' => 'bg-violet-50 text-violet-700 ring-violet-100',
+        'cancelled' => 'bg-slate-100 text-slate-600 ring-slate-200',
+    ][$status] ?? 'bg-red-50 text-red-700 ring-red-100';
+}
+
+function contest_members_from_post(): array
+{
+    $names = $_POST['member_name'] ?? [];
+    $ages = $_POST['member_age'] ?? [];
+    $phones = $_POST['member_phone'] ?? [];
+    $ids = $_POST['member_id'] ?? [];
+    $members = [];
+    foreach ((array) $names as $index => $name) {
+        $name = trim((string) $name);
+        if ($name === '') {
+            continue;
+        }
+        $members[] = [
+            'name' => $name,
+            'age' => trim((string) ($ages[$index] ?? '')),
+            'phone' => trim((string) ($phones[$index] ?? '')),
+            'id' => trim((string) ($ids[$index] ?? '')),
+        ];
+    }
+
+    return array_slice($members, 0, 20);
+}
+
+function contest_members_summary(?string $json): string
+{
+    $members = json_decode((string) $json, true);
+    if (!is_array($members)) {
+        return '';
+    }
+
+    $lines = [];
+    foreach ($members as $index => $member) {
+        $name = trim((string) ($member['name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $parts = [$name];
+        if (!empty($member['age'])) {
+            $parts[] = 'อายุ ' . $member['age'];
+        }
+        if (!empty($member['phone'])) {
+            $parts[] = 'โทร ' . $member['phone'];
+        }
+        $lines[] = ((int) $index + 1) . '. ' . implode(' / ', $parts);
+    }
+
+    return implode("\n", $lines);
+}
+
 function frontend_admin_dropdown(?array $admin, bool $mobile = false): string
 {
     if (!$admin) {
@@ -789,6 +959,8 @@ function frontend_admin_dropdown(?array $admin, bool $mobile = false): string
     }
 
     $newCrmCount = crm_new_count();
+    $newContestCount = contest_new_count();
+    $totalNoticeCount = $newCrmCount + $newContestCount;
     $profileUrl = '/admin/users/edit?id=' . (int) ($admin['id'] ?? 0);
     $summaryClass = $mobile
         ? 'flex w-full min-w-0 cursor-pointer list-none items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 [&::-webkit-details-marker]:hidden'
@@ -803,7 +975,7 @@ function frontend_admin_dropdown(?array $admin, bool $mobile = false): string
         <summary class="<?= e($summaryClass) ?>">
             <?= admin_avatar_html($admin, 'h-8 w-8') ?>
             <span class="truncate"><?= e(admin_display_name($admin)) ?></span>
-            <?= crm_notification_badge($newCrmCount) ?>
+            <?= crm_notification_badge($totalNoticeCount) ?>
             <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-slate-400"></i>
         </summary>
         <div class="<?= e($dropdownClass) ?>">
@@ -815,6 +987,11 @@ function frontend_admin_dropdown(?array $admin, bool $mobile = false): string
                 <i data-lucide="message-square-text" class="h-4 w-4 text-slate-500"></i>
                 <span class="min-w-0 flex-1">CRM ลูกค้า</span>
                 <?= crm_notification_badge($newCrmCount, 'ring-0') ?>
+            </a>
+            <a href="/admin/contest" class="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold hover:bg-slate-100">
+                <i data-lucide="music-2" class="h-4 w-4 text-slate-500"></i>
+                <span class="min-w-0 flex-1">สมัครประกวด</span>
+                <?= crm_notification_badge($newContestCount, 'ring-0') ?>
             </a>
             <a href="<?= e($profileUrl) ?>" class="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-extrabold hover:bg-slate-100">
                 <i data-lucide="user-circle" class="h-4 w-4 text-slate-500"></i>
@@ -954,6 +1131,10 @@ function setting_defaults(): array
         'seo_contact_title_en' => 'Contact Us | Bigevent Organizer',
         'seo_contact_description_th' => 'ติดต่อ Bigevent เพื่อขอใบเสนอราคาและปรึกษาการจัดงานอีเวนต์ Product Launch, Corporate Event, Exhibition และงานองค์กร',
         'seo_contact_description_en' => 'Contact Bigevent for event quotations and consultation for product launches, corporate events, exhibitions and organizational events.',
+        'seo_contest_title_th' => 'สมัครประกวด Fresh Beat Cover Dance Contest | Bigevent Organizer',
+        'seo_contest_title_en' => 'Fresh Beat Cover Dance Contest | Bigevent Organizer',
+        'seo_contest_description_th' => 'สมัครประกวด Fresh Beat Cover Dance Contest รุ่น Open ไม่จำกัดอายุและเพศ แข่งขันวันที่ 14 สิงหาคม 2569 ณ ห้างบิ๊กซีอำนาจเจริญ',
+        'seo_contest_description_en' => 'Register for Fresh Beat Cover Dance Contest, an open cover dance competition at Big C Amnat Charoen on 14 August 2026.',
     ];
 }
 
@@ -1038,6 +1219,10 @@ function settings_schema(): array
                 'seo_contact_title_en' => ['Contact Title EN', 'text', 'Title หน้าติดต่อภาษาอังกฤษ'],
                 'seo_contact_description_th' => ['Contact Description TH', 'textarea', 'Description หน้าติดต่อภาษาไทย'],
                 'seo_contact_description_en' => ['Contact Description EN', 'textarea', 'Description หน้าติดต่อภาษาอังกฤษ'],
+                'seo_contest_title_th' => ['Contest Title TH', 'text', 'Title หน้าแคมเปญประกวดภาษาไทย'],
+                'seo_contest_title_en' => ['Contest Title EN', 'text', 'Title หน้าแคมเปญประกวดภาษาอังกฤษ'],
+                'seo_contest_description_th' => ['Contest Description TH', 'textarea', 'Description หน้าแคมเปญประกวดภาษาไทย'],
+                'seo_contest_description_en' => ['Contest Description EN', 'textarea', 'Description หน้าแคมเปญประกวดภาษาอังกฤษ'],
             ],
         ],
         'api' => [
@@ -1078,6 +1263,7 @@ function seo_page_key(string $path): ?string
         '/clients' => 'clients',
         '/articles' => 'articles',
         '/contact' => 'contact',
+        '/fresh-beat-cover-dance-contest' => 'contest',
         '/privacy-policy' => 'privacy',
         '/cookie-policy' => 'cookie',
     ][$path] ?? null;
@@ -2300,6 +2486,7 @@ function admin_layout(string $title, callable $content): void
         '/admin/clients' => ['โลโก้ลูกค้า', 'handshake'],
         '/admin/articles' => ['บทความ', 'newspaper'],
         '/admin/crm' => ['CRM ลูกค้า', 'message-square-text'],
+        '/admin/contest' => ['สมัครประกวด', 'music-2'],
         '/admin/tools' => ['เครื่องมือ', 'wrench'],
         '/admin/users' => ['ผู้ใช้งาน', 'users'],
         '/admin/backup' => ['Backup', 'database-backup'],
@@ -2308,6 +2495,7 @@ function admin_layout(string $title, callable $content): void
         $menu['/admin/settings'] = ['ตั้งค่า', 'settings'];
     }
     $newCrmCount = crm_new_count();
+    $newContestCount = contest_new_count();
     $needsPasswordChange = default_admin_password_is_active();
     ?>
     <!doctype html>
@@ -2344,6 +2532,9 @@ function admin_layout(string $title, callable $content): void
                             <span class="truncate"><?= $label ?></span>
                             <?php if ($href === '/admin/crm'): ?>
                                 <?= crm_notification_badge($newCrmCount, $active ? 'ml-auto ring-slate-950' : 'ml-auto') ?>
+                            <?php endif; ?>
+                            <?php if ($href === '/admin/contest'): ?>
+                                <?= crm_notification_badge($newContestCount, $active ? 'ml-auto ring-slate-950' : 'ml-auto') ?>
                             <?php endif; ?>
                         </a>
                     <?php endforeach; ?>
@@ -3769,6 +3960,351 @@ function notify_crm_inquiry(int $id): void
     }
 }
 
+function contest_page(): void
+{
+    $campaign = contest_campaign();
+    $lang = current_lang();
+    $isEn = $lang === 'en';
+    $flash = flash();
+    $pagePath = '/fresh-beat-cover-dance-contest';
+
+    set_alternate_paths($pagePath, '/en' . $pagePath);
+    set_schema_extra([
+        [
+            '@context' => 'https://schema.org',
+            '@type' => 'Event',
+            'name' => $campaign['title'],
+            'description' => $campaign['seo_description'],
+            'startDate' => $campaign['date'],
+            'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+            'eventStatus' => 'https://schema.org/EventScheduled',
+            'location' => [
+                '@type' => 'Place',
+                'name' => $campaign['venue'],
+                'address' => $campaign['venue'],
+            ],
+            'organizer' => [
+                '@type' => 'Organization',
+                'name' => setting('company_name', 'บริษัท บิ๊กอีเว้นท์ จำกัด'),
+                'url' => absolute_url('/'),
+            ],
+        ],
+    ]);
+
+    layout($campaign['seo_title'], function () use ($campaign, $isEn, $flash, $pagePath) {
+        ?>
+        <section class="relative overflow-hidden bg-[#070b18] text-white">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(248,113,113,0.28),transparent_30%),radial-gradient(circle_at_84%_12%,rgba(234,179,8,0.26),transparent_32%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))]"></div>
+            <div class="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#070b18] to-transparent"></div>
+            <div class="relative mx-auto grid min-h-[calc(100vh-5rem)] max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+                <div class="max-w-3xl">
+                    <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-black uppercase tracking-[0.22em] text-amber-200 backdrop-blur">
+                        <span class="h-2 w-2 rounded-full bg-coral"></span>
+                        <?= e($campaign['eyebrow']) ?>
+                    </div>
+                    <h1 class="mt-6 text-5xl font-black leading-[0.95] tracking-tight sm:text-7xl lg:text-8xl">
+                        FRESH <span class="text-coral">BEAT</span><br>
+                        <span class="text-amber-200">COVER DANCE</span>
+                    </h1>
+                    <p class="mt-6 max-w-2xl text-base font-semibold leading-8 text-slate-200 sm:text-lg">
+                        <?= e($campaign['description']) ?>
+                    </p>
+                    <div class="mt-8 flex flex-col gap-3 sm:flex-row">
+                        <a href="#contest-form" class="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-4 text-sm font-black text-slate-950 shadow-soft transition hover:-translate-y-0.5 hover:bg-amber-100">
+                            <?= $isEn ? 'Register Your Team' : 'สมัครทีมเข้าแข่งขัน' ?>
+                            <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                        </a>
+                        <a href="#contest-rules" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-4 text-sm font-black text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/15">
+                            <?= $isEn ? 'View Rules' : 'ดูกติกาและคะแนน' ?>
+                            <i data-lucide="list-checks" class="h-4 w-4"></i>
+                        </a>
+                    </div>
+                    <div class="mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+                        <?php foreach ([
+                            [$isEn ? 'Category' : 'รุ่นแข่งขัน', 'Open'],
+                            [$isEn ? 'Members' : 'สมาชิก', '3+'],
+                            [$isEn ? 'Song Length' : 'ความยาวเพลง', '<= 5 ' . ($isEn ? 'min' : 'นาที')],
+                            [$isEn ? 'Venue' : 'สถานที่', $campaign['venue']],
+                        ] as [$label, $value]): ?>
+                            <div class="rounded-3xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur">
+                                <div class="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400"><?= e($label) ?></div>
+                                <div class="mt-2 text-lg font-black text-white"><?= e($value) ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div class="absolute -inset-8 rounded-[3rem] bg-coral/20 blur-3xl"></div>
+                    <div class="relative rounded-[2rem] border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
+                        <div class="rounded-[1.5rem] bg-slate-950/70 p-6">
+                            <p class="text-xs font-black uppercase tracking-[0.24em] text-amber-200"><?= $isEn ? 'Event Date' : 'วันแข่งขัน' ?></p>
+                            <h2 class="mt-3 text-3xl font-black"><?= e($campaign['date_label']) ?></h2>
+                            <p class="mt-2 text-sm font-bold text-slate-300"><?= e($campaign['venue']) ?></p>
+                        </div>
+                        <div class="mt-4 grid gap-3">
+                            <?php foreach ($campaign['prizes'] as $index => $prize): ?>
+                                <div class="flex items-center justify-between rounded-3xl bg-white p-4 text-slate-950">
+                                    <div class="flex items-center gap-3">
+                                        <span class="grid h-10 w-10 place-items-center rounded-2xl bg-slate-950 text-sm font-black text-white"><?= $index + 1 ?></span>
+                                        <span class="font-black"><?= e($prize['label']) ?></span>
+                                    </div>
+                                    <span class="text-xl font-black text-coral"><?= e($prize['amount']) ?>.-</span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contest-rules" class="scroll-mt-28 bg-[#f6f4ef] px-4 py-20 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-7xl">
+                <div class="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[0.32em] text-coral"><?= $isEn ? 'Competition Rules' : 'กติกาแข่งขัน' ?></p>
+                        <h2 class="mt-4 text-4xl font-black leading-tight text-slate-950"><?= $isEn ? 'Easy to join, clear to judge' : 'สมัครง่าย กติกาชัด พร้อมขึ้นเวที' ?></h2>
+                        <div class="mt-6 space-y-3 text-sm font-bold leading-7 text-slate-600">
+                            <p><?= $isEn ? 'Open category for all ages and genders.' : 'รุ่น Open ไม่จำกัดอายุ และไม่จำกัดเพศ' ?></p>
+                            <p><?= $isEn ? 'Each team must have at least 3 members. One person can join up to 3 teams with team notice.' : 'ใน 1 ทีมต้องมีสมาชิก 3 คนขึ้นไป และผู้เข้าแข่งขัน 1 คนลงได้ไม่เกิน 3 ทีม โดยแจ้งทีมงานเพื่อจัดลำดับ' ?></p>
+                            <p><?= $isEn ? 'Music can be edited freely, but must be no longer than 5 minutes.' : 'เพลงใช้แข่งขันสามารถตัดต่อได้อย่างอิสระ ความยาวไม่เกิน 5 นาที' ?></p>
+                        </div>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <?php foreach ($campaign['scores'] as [$name, $score, $detail]): ?>
+                            <article class="rounded-[1.5rem] bg-white p-5 shadow-sm">
+                                <div class="flex items-start justify-between gap-4">
+                                    <h3 class="text-lg font-black text-slate-950"><?= e($name) ?></h3>
+                                    <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800"><?= (int) $score ?> <?= $isEn ? 'pts' : 'คะแนน' ?></span>
+                                </div>
+                                <p class="mt-3 text-sm font-semibold leading-7 text-slate-600"><?= e($detail) ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contest-form" class="scroll-mt-28 bg-white px-4 py-20 sm:px-6 lg:px-8">
+            <div class="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+                <div class="lg:sticky lg:top-28 lg:self-start">
+                    <p class="text-xs font-black uppercase tracking-[0.32em] text-coral"><?= $isEn ? 'Registration' : 'ลงทะเบียนสมัคร' ?></p>
+                    <h2 class="mt-4 text-4xl font-black leading-tight text-slate-950"><?= $isEn ? 'Send your team details in one form' : 'กรอกข้อมูลทีมให้ครบในฟอร์มเดียว' ?></h2>
+                    <p class="mt-5 text-sm font-bold leading-7 text-slate-600"><?= $isEn ? 'After submitting, the team will review your entry and contact the coordinator. You can add more members before sending.' : 'หลังส่งข้อมูล ทีมงานจะตรวจสอบและติดต่อผู้ประสานงานกลับ สามารถเพิ่มรายชื่อสมาชิกให้ครบก่อนส่งได้เลย' ?></p>
+                    <div class="mt-6 rounded-[1.5rem] bg-slate-950 p-5 text-white">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="mail" class="h-5 w-5 text-amber-200"></i>
+                            <div>
+                                <p class="text-xs font-black uppercase tracking-[0.18em] text-slate-400"><?= $isEn ? 'Send music to' : 'ส่งเพลงประกวดที่' ?></p>
+                                <a href="mailto:<?= e(setting('admin_contact_email', 'Contact@bigevent.co.th')) ?>" class="mt-1 block text-sm font-black text-white hover:text-amber-200"><?= e(setting('admin_contact_email', 'Contact@bigevent.co.th')) ?></a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" action="<?= e(url_for($pagePath)) ?>" class="rounded-[2rem] bg-[#f8fafc] p-4 shadow-soft sm:p-6">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="source_path" value="<?= e(path()) ?>">
+                    <input type="text" name="website" value="" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
+                    <?php if ($flash): ?>
+                        <div class="mb-5 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-black shadow-sm <?= $flash['type'] === 'error' ? 'border-red-100 bg-red-50 text-red-700' : 'border-emerald-100 bg-emerald-50 text-emerald-700' ?>">
+                            <i data-lucide="<?= $flash['type'] === 'error' ? 'alert-circle' : 'check-circle-2' ?>" class="mt-0.5 h-5 w-5 shrink-0"></i>
+                            <span><?= e($flash['message']) ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="sm:col-span-2"><label class="admin-label"><?= $isEn ? 'Team name' : 'ชื่อทีม' ?></label><input class="admin-field" name="team_name" required></div>
+                        <div><label class="admin-label"><?= $isEn ? 'Cover song' : 'เพลงที่ใช้แข่งขัน' ?></label><input class="admin-field" name="cover_song" required></div>
+                        <div><label class="admin-label"><?= $isEn ? 'Original artist' : 'ศิลปินต้นแบบ' ?></label><input class="admin-field" name="artist_name"></div>
+                        <div><label class="admin-label"><?= $isEn ? 'Coordinator name' : 'ชื่อผู้ติดต่อ' ?></label><input class="admin-field" name="contact_name" required></div>
+                        <div><label class="admin-label"><?= $isEn ? 'Phone' : 'เบอร์โทรศัพท์' ?></label><input class="admin-field" name="phone" required inputmode="tel"></div>
+                        <div><label class="admin-label">Email</label><input class="admin-field" name="email" type="email"></div>
+                        <div><label class="admin-label">LINE ID</label><input class="admin-field" name="line_id"></div>
+                        <div><label class="admin-label"><?= $isEn ? 'Province' : 'จังหวัด' ?></label><input class="admin-field" name="province" value="อำนาจเจริญ"></div>
+                        <div><label class="admin-label"><?= $isEn ? 'School / organization' : 'สถานศึกษา / หน่วยงาน' ?></label><input class="admin-field" name="institution"></div>
+                        <div class="sm:col-span-2"><label class="admin-label"><?= $isEn ? 'Music link' : 'ลิงก์เพลงหรือไฟล์เพลง' ?></label><input class="admin-field" name="music_url" type="url" placeholder="Google Drive / YouTube / Dropbox"></div>
+                        <div class="sm:col-span-2"><label class="admin-label"><?= $isEn ? 'Notes' : 'หมายเหตุเพิ่มเติม' ?></label><textarea class="admin-field min-h-28" name="message"></textarea></div>
+                    </div>
+
+                    <div class="mt-6 rounded-[1.5rem] bg-white p-4 ring-1 ring-slate-100">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 class="text-lg font-black text-slate-950"><?= $isEn ? 'Team members' : 'รายชื่อสมาชิกทีม' ?></h3>
+                                <p class="mt-1 text-xs font-bold text-slate-500"><?= $isEn ? 'At least 3 members are required.' : 'ต้องมีสมาชิกอย่างน้อย 3 คน' ?></p>
+                            </div>
+                            <button type="button" id="addContestMember" class="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white hover:bg-coral">
+                                <i data-lucide="plus" class="h-4 w-4"></i><?= $isEn ? 'Add member' : 'เพิ่มสมาชิก' ?>
+                            </button>
+                        </div>
+                        <div id="contestMembers" class="mt-4 space-y-3">
+                            <?php for ($i = 0; $i < 3; $i++): ?>
+                                <div class="contest-member-row grid gap-3 rounded-2xl bg-slate-50 p-3 sm:grid-cols-[1.2fr_0.45fr_0.9fr_1fr_auto]">
+                                    <input class="admin-field" name="member_name[]" required placeholder="<?= $isEn ? 'Name' : 'ชื่อ-สกุล' ?>">
+                                    <input class="admin-field" name="member_age[]" inputmode="numeric" placeholder="<?= $isEn ? 'Age' : 'อายุ' ?>">
+                                    <input class="admin-field" name="member_phone[]" inputmode="tel" placeholder="<?= $isEn ? 'Phone' : 'เบอร์โทร' ?>">
+                                    <input class="admin-field" name="member_id[]" placeholder="<?= $isEn ? 'ID / note' : 'เลขบัตร / หมายเหตุ' ?>">
+                                    <button type="button" class="remove-member inline-flex h-12 items-center justify-center rounded-xl bg-white px-3 text-red-500 ring-1 ring-slate-100 disabled:opacity-30" disabled><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+                                </div>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+                    <button class="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-4 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-coral">
+                        <?= $isEn ? 'Submit Registration' : 'ส่งใบสมัคร' ?>
+                        <i data-lucide="send" class="h-4 w-4"></i>
+                    </button>
+                </form>
+            </div>
+        </section>
+        <script>
+            (() => {
+                const wrap = document.getElementById('contestMembers');
+                const add = document.getElementById('addContestMember');
+                if (!wrap || !add) return;
+                const updateButtons = () => {
+                    const rows = [...wrap.querySelectorAll('.contest-member-row')];
+                    rows.forEach((row) => {
+                        const btn = row.querySelector('.remove-member');
+                        if (btn) btn.disabled = rows.length <= 3;
+                    });
+                    if (window.lucide) window.lucide.createIcons();
+                };
+                add.addEventListener('click', () => {
+                    const rows = wrap.querySelectorAll('.contest-member-row');
+                    if (rows.length >= 20) return;
+                    const clone = rows[0].cloneNode(true);
+                    clone.querySelectorAll('input').forEach((input) => input.value = '');
+                    wrap.appendChild(clone);
+                    updateButtons();
+                });
+                wrap.addEventListener('click', (event) => {
+                    const btn = event.target.closest('.remove-member');
+                    if (!btn || btn.disabled) return;
+                    btn.closest('.contest-member-row')?.remove();
+                    updateButtons();
+                });
+                updateButtons();
+            })();
+        </script>
+        <?php
+    }, $campaign['seo_description']);
+}
+
+function handle_contest_registration(): void
+{
+    verify_csrf();
+    $path = '/fresh-beat-cover-dance-contest';
+    if (trim((string) ($_POST['website'] ?? '')) !== '') {
+        redirect(url_for($path));
+    }
+    $lastSubmit = (int) ($_SESSION['contest_last_submit'] ?? 0);
+    if ($lastSubmit && time() - $lastSubmit < 45) {
+        flash(current_lang() === 'en' ? 'Please wait a moment before submitting another registration.' : 'กรุณารอสักครู่ก่อนส่งใบสมัครอีกครั้ง', 'error');
+        redirect(url_for($path) . '#contest-form');
+    }
+
+    $teamName = trim((string) ($_POST['team_name'] ?? ''));
+    $contactName = trim((string) ($_POST['contact_name'] ?? ''));
+    $phone = trim((string) ($_POST['phone'] ?? ''));
+    $coverSong = trim((string) ($_POST['cover_song'] ?? ''));
+    $email = trim((string) ($_POST['email'] ?? ''));
+    $musicUrl = trim((string) ($_POST['music_url'] ?? ''));
+    $members = contest_members_from_post();
+
+    if ($teamName === '' || $contactName === '' || $phone === '' || $coverSong === '') {
+        flash(current_lang() === 'en' ? 'Please fill team name, contact name, phone and cover song.' : 'กรุณากรอกชื่อทีม ชื่อผู้ติดต่อ เบอร์โทร และเพลงที่ใช้แข่งขัน', 'error');
+        redirect(url_for($path) . '#contest-form');
+    }
+    if (count($members) < 3) {
+        flash(current_lang() === 'en' ? 'Please add at least 3 team members.' : 'กรุณาเพิ่มรายชื่อสมาชิกอย่างน้อย 3 คน', 'error');
+        redirect(url_for($path) . '#contest-form');
+    }
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        flash(current_lang() === 'en' ? 'Please enter a valid email address.' : 'กรุณากรอกอีเมลให้ถูกต้อง', 'error');
+        redirect(url_for($path) . '#contest-form');
+    }
+    if ($musicUrl !== '' && !filter_var($musicUrl, FILTER_VALIDATE_URL)) {
+        flash(current_lang() === 'en' ? 'Please enter a valid music link.' : 'กรุณากรอกลิงก์เพลงให้ถูกต้อง', 'error');
+        redirect(url_for($path) . '#contest-form');
+    }
+
+    $stmt = db()->prepare("
+        INSERT INTO contest_entries (campaign_slug, team_name, cover_song, artist_name, member_count, contact_name, phone, email, line_id, province, institution, music_url, message, members_json, status, source_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        'fresh-beat-cover-dance-contest',
+        $teamName,
+        $coverSong,
+        trim((string) ($_POST['artist_name'] ?? '')),
+        count($members),
+        $contactName,
+        $phone,
+        $email,
+        trim((string) ($_POST['line_id'] ?? '')),
+        trim((string) ($_POST['province'] ?? '')),
+        trim((string) ($_POST['institution'] ?? '')),
+        $musicUrl,
+        trim((string) ($_POST['message'] ?? '')),
+        json_encode($members, JSON_UNESCAPED_UNICODE),
+        'new',
+        trim((string) ($_POST['source_path'] ?? path())),
+    ]);
+
+    $_SESSION['contest_last_submit'] = time();
+    notify_contest_entry((int) db()->lastInsertId());
+    flash(current_lang() === 'en' ? 'Registration received. Our team will contact you shortly.' : 'รับใบสมัครเรียบร้อยครับ ทีมงานจะตรวจสอบและติดต่อกลับโดยเร็ว');
+    redirect(url_for($path) . '#contest-form');
+}
+
+function notify_contest_entry(int $id): void
+{
+    $stmt = db()->prepare("SELECT * FROM contest_entries WHERE id = ?");
+    $stmt->execute([$id]);
+    $entry = $stmt->fetch();
+    if (!$entry) {
+        return;
+    }
+
+    $subject = 'Fresh Beat Registration: ' . $entry['team_name'];
+    $body = implode("\n", [
+        'มีทีมสมัครประกวด Fresh Beat ใหม่',
+        'ทีม: ' . ($entry['team_name'] ?? '-'),
+        'ผู้ติดต่อ: ' . ($entry['contact_name'] ?? '-'),
+        'โทร: ' . ($entry['phone'] ?? '-'),
+        'อีเมล: ' . ($entry['email'] ?? '-'),
+        'LINE: ' . ($entry['line_id'] ?? '-'),
+        'เพลง: ' . ($entry['cover_song'] ?? '-'),
+        'ศิลปิน: ' . ($entry['artist_name'] ?? '-'),
+        'สมาชิก: ' . ($entry['member_count'] ?? '-'),
+        'ลิงก์เพลง: ' . ($entry['music_url'] ?? '-'),
+        'หมายเหตุ: ' . ($entry['message'] ?? '-'),
+        'ดูในหลังบ้าน: ' . absolute_url('/admin/contest/view?id=' . (int) $entry['id']),
+    ]);
+
+    $notificationEmail = setting('crm_notification_email', CRM_NOTIFICATION_EMAIL);
+    if ($notificationEmail !== '') {
+        @mail($notificationEmail, $subject, $body, "Content-Type: text/plain; charset=UTF-8\r\n");
+    }
+
+    $webhook = setting('crm_line_webhook_url', getenv(CRM_LINE_WEBHOOK_ENV) ?: '');
+    if ($webhook !== '') {
+        $payload = json_encode(['text' => $body], JSON_UNESCAPED_UNICODE);
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/json\r\n",
+                'content' => $payload,
+                'timeout' => 3,
+            ],
+        ]);
+        @file_get_contents($webhook, false, $context);
+    }
+}
+
+function contest_status_options(): array
+{
+    return ['new', 'reviewed', 'contacted', 'confirmed', 'waitlist', 'cancelled'];
+}
+
 function robots_txt()
 {
     header('Content-Type: text/plain; charset=UTF-8');
@@ -3782,9 +4318,9 @@ function robots_txt()
 function sitemap_xml()
 {
     $urls = [];
-    foreach (['/', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
-        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/services', '/portfolio'], true) ? '0.9' : '0.8');
-        $changefreq = in_array($staticPath, ['/', '/portfolio', '/articles'], true) ? 'weekly' : 'monthly';
+    foreach (['/', '/fresh-beat-cover-dance-contest', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
+        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/fresh-beat-cover-dance-contest', '/services', '/portfolio'], true) ? '0.9' : '0.8');
+        $changefreq = in_array($staticPath, ['/', '/fresh-beat-cover-dance-contest', '/portfolio', '/articles'], true) ? 'weekly' : 'monthly';
         $alternates = [
             'th-TH' => absolute_url(localized_url('th', $staticPath)),
             'en' => absolute_url(localized_url('en', $staticPath)),
@@ -3937,11 +4473,12 @@ function admin_dashboard(): void
             ['โลโก้ลูกค้า', (int) db()->query("SELECT COUNT(*) FROM clients")->fetchColumn(), 'handshake'],
             ['บทความ', (int) db()->query("SELECT COUNT(*) FROM articles")->fetchColumn(), 'newspaper'],
             ['CRM ลูกค้า', (int) db()->query("SELECT COUNT(*) FROM inquiries")->fetchColumn(), 'message-square-text'],
+            ['สมัครประกวด', (int) db()->query("SELECT COUNT(*) FROM contest_entries")->fetchColumn(), 'music-2'],
             ['เครื่องมือ', 0, 'wrench'],
             ['ผู้ใช้งาน', (int) db()->query("SELECT COUNT(*) FROM users")->fetchColumn(), 'users'],
         ];
         ?>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
             <?php foreach ($stats as [$label, $count, $icon]): ?>
                 <div class="min-w-0 rounded-[1.5rem] bg-white p-6 shadow-sm">
                     <div class="mb-5 grid h-11 w-11 place-items-center rounded-2xl bg-slate-100"><i data-lucide="<?= $icon ?>" class="h-5 w-5"></i></div>
@@ -3952,7 +4489,7 @@ function admin_dashboard(): void
         </div>
         <div class="mt-8 rounded-[1.5rem] bg-white p-6 shadow-sm">
             <h2 class="text-xl font-extrabold">เริ่มจัดการเว็บ</h2>
-            <p class="mt-2 text-sm leading-7 text-slate-600">ใช้เมนูด้านซ้ายเพื่อเพิ่ม/แก้ไขแบนเนอร์ ผลงาน โลโก้ลูกค้า และบทความ คอนเทนต์ที่เปิดเผยแพร่จะไปแสดงบนหน้าบ้านทันที</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">ใช้เมนูด้านซ้ายเพื่อเพิ่ม/แก้ไขแบนเนอร์ ผลงาน โลโก้ลูกค้า บทความ CRM และระบบสมัครประกวด คอนเทนต์ที่เปิดเผยแพร่จะไปแสดงบนหน้าบ้านทันที</p>
         </div>
         <?php
     });
@@ -4448,6 +4985,315 @@ function delete_crm(): void
     redirect('/admin/crm');
 }
 
+function admin_contest(): void
+{
+    $statusFilter = (string) ($_GET['status'] ?? '');
+    $keyword = trim((string) ($_GET['q'] ?? ''));
+    $page = current_page();
+    $perPage = per_page();
+    $where = [];
+    $params = [];
+
+    if (array_key_exists($statusFilter, contest_status_options())) {
+        $where[] = 'status = ?';
+        $params[] = $statusFilter;
+    }
+    if ($keyword !== '') {
+        $where[] = '(team_name LIKE ? OR contact_name LIKE ? OR phone LIKE ? OR email LIKE ? OR line_id LIKE ? OR cover_song LIKE ? OR artist_name LIKE ? OR institution LIKE ? OR province LIKE ? OR message LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+    }
+
+    $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+    $countStmt = db()->prepare("SELECT COUNT(*) FROM contest_entries" . $whereSql);
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+    $offset = ($page - 1) * $perPage;
+    $stmt = db()->prepare("SELECT * FROM contest_entries" . $whereSql . " ORDER BY created_at DESC, id DESC LIMIT " . (int) $perPage . " OFFSET " . (int) $offset);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+
+    admin_layout('สมัครประกวด', function () use ($rows, $statusFilter, $keyword, $total, $page, $perPage) {
+        ?>
+        <div class="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+                <p class="text-sm font-semibold text-slate-500">รายชื่อทีมที่สมัคร Fresh Beat Cover Dance Contest</p>
+                <p class="mt-1 text-xs font-semibold leading-6 text-slate-400">ดูข้อมูลทีม รายชื่อสมาชิก เพลงที่ใช้แข่ง และสถานะการประสานงานได้จากหน้านี้</p>
+            </div>
+            <a href="/fresh-beat-cover-dance-contest" target="_blank" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white hover:bg-coral">
+                <i data-lucide="external-link" class="h-4 w-4"></i> ดูหน้ารับสมัคร
+            </a>
+        </div>
+        <form method="get" action="/admin/contest" class="mb-5 grid gap-3 rounded-[1.5rem] bg-white p-4 shadow-sm md:grid-cols-[1fr_220px_auto_auto_auto]">
+            <input class="admin-field" name="q" value="<?= e($keyword) ?>" placeholder="ค้นหาทีม ผู้ติดต่อ เบอร์ เพลง ศิลปิน จังหวัด หรือรายละเอียด">
+            <select class="admin-field bg-white" name="status">
+                <option value="">ทุกสถานะ</option>
+                <?php foreach (contest_status_options() as $status => $label): ?>
+                    <option value="<?= e($status) ?>" <?= $statusFilter === $status ? 'selected' : '' ?>><?= e($label) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button class="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white hover:bg-coral">ค้นหา</button>
+            <a href="/admin/contest" class="rounded-2xl bg-slate-100 px-5 py-3 text-center text-sm font-extrabold text-slate-700 hover:bg-slate-200">ล้าง</a>
+            <a href="/admin/contest/export?<?= e(http_build_query(['q' => $keyword, 'status' => $statusFilter])) ?>" class="rounded-2xl bg-emerald-50 px-5 py-3 text-center text-sm font-extrabold text-emerald-700 hover:bg-emerald-100">Export CSV</a>
+        </form>
+        <div class="overflow-hidden rounded-[1.5rem] bg-white shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1040px] table-fixed text-left text-sm xl:min-w-full">
+                    <thead class="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th class="w-[24%] px-5 py-4">ทีม / ผู้ติดต่อ</th>
+                            <th class="w-[26%] px-5 py-4">ข้อมูลเพลง</th>
+                            <th class="w-[12%] px-5 py-4">สมาชิก</th>
+                            <th class="w-[13%] px-5 py-4">สถานะ</th>
+                            <th class="w-[13%] px-5 py-4">วันที่สมัคร</th>
+                            <th class="w-[12%] px-5 py-4 text-right">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                    <?php foreach ($rows as $row): ?>
+                        <tr>
+                            <td class="px-5 py-4 align-top">
+                                <div class="truncate font-extrabold"><?= e($row['team_name']) ?></div>
+                                <div class="mt-1 text-xs font-bold text-slate-500"><?= e($row['contact_name']) ?></div>
+                                <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-slate-500">
+                                    <a class="hover:text-coral" href="tel:<?= e(preg_replace('/\D+/', '', (string) $row['phone'])) ?>"><?= e($row['phone']) ?></a>
+                                    <?php if ($row['email']): ?><a class="hover:text-coral" href="mailto:<?= e($row['email']) ?>"><?= e($row['email']) ?></a><?php endif; ?>
+                                </div>
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <div class="line-clamp-2 font-bold"><?= e($row['cover_song'] ?: 'ยังไม่ระบุเพลง') ?></div>
+                                <div class="mt-1 truncate text-xs font-semibold text-slate-500"><?= e($row['artist_name'] ?: 'ไม่ระบุศิลปิน') ?></div>
+                                <div class="mt-1 truncate text-xs text-slate-400"><?= e(trim((string) ($row['institution'] ?? '') . ' ' . (string) ($row['province'] ?? '')) ?: '-') ?></div>
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-700">
+                                    <i data-lucide="users" class="h-3.5 w-3.5"></i>
+                                    <?= (int) $row['member_count'] ?> คน
+                                </span>
+                            </td>
+                            <td class="px-5 py-4 align-top">
+                                <span class="rounded-full px-3 py-1 text-xs font-bold ring-1 <?= e(contest_status_class((string) $row['status'])) ?>"><?= e(contest_status_label((string) $row['status'])) ?></span>
+                            </td>
+                            <td class="px-5 py-4 align-top text-slate-500"><?= e(date('Y-m-d H:i', strtotime((string) $row['created_at']))) ?></td>
+                            <td class="px-5 py-4 text-right align-top">
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    <a href="/admin/contest/view?id=<?= (int) $row['id'] ?>" class="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold hover:bg-slate-200">รายละเอียด</a>
+                                    <form method="post" action="/admin/contest/delete" onsubmit="return confirm('ยืนยันการลบทีมสมัครนี้?')">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                                        <button class="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">ลบ</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    <?php if (!$rows): ?>
+                        <tr><td colspan="6" class="px-5 py-10 text-center text-sm font-semibold text-slate-400">ยังไม่มีทีมสมัครเข้ามา</td></tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?= pagination_html($total, $page, $perPage) ?>
+        <?php
+    });
+}
+
+function export_contest_csv(): void
+{
+    require_admin();
+    $statusFilter = (string) ($_GET['status'] ?? '');
+    $keyword = trim((string) ($_GET['q'] ?? ''));
+    $where = [];
+    $params = [];
+    if (array_key_exists($statusFilter, contest_status_options())) {
+        $where[] = 'status = ?';
+        $params[] = $statusFilter;
+    }
+    if ($keyword !== '') {
+        $where[] = '(team_name LIKE ? OR contact_name LIKE ? OR phone LIKE ? OR email LIKE ? OR line_id LIKE ? OR cover_song LIKE ? OR artist_name LIKE ? OR institution LIKE ? OR province LIKE ? OR message LIKE ?)';
+        $like = '%' . $keyword . '%';
+        array_push($params, $like, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+    }
+
+    $stmt = db()->prepare("SELECT * FROM contest_entries" . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . " ORDER BY created_at DESC, id DESC");
+    $stmt->execute($params);
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="fresh-beat-contest-' . date('Ymd-His') . '.csv"');
+    echo "\xEF\xBB\xBF";
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['ID', 'Campaign', 'Team', 'Contact', 'Phone', 'Email', 'LINE', 'Province', 'Institution', 'Song', 'Artist', 'Members Count', 'Members', 'Music URL', 'Message', 'Status', 'Admin Note', 'Source', 'Created At']);
+    foreach ($stmt->fetchAll() as $row) {
+        fputcsv($out, [
+            $row['id'],
+            $row['campaign_slug'],
+            $row['team_name'],
+            $row['contact_name'],
+            $row['phone'],
+            $row['email'],
+            $row['line_id'],
+            $row['province'],
+            $row['institution'],
+            $row['cover_song'],
+            $row['artist_name'],
+            $row['member_count'],
+            contest_members_summary($row['members_json'] ?? ''),
+            $row['music_url'],
+            $row['message'],
+            contest_status_label((string) $row['status']),
+            $row['admin_note'],
+            $row['source_path'],
+            $row['created_at'],
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
+function admin_contest_view(int $id): void
+{
+    $stmt = db()->prepare("SELECT * FROM contest_entries WHERE id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        not_found();
+    }
+
+    if (empty($row['viewed_at'])) {
+        $markStmt = db()->prepare("UPDATE contest_entries SET viewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $markStmt->execute([$id]);
+        $row['viewed_at'] = date('Y-m-d H:i:s');
+    }
+
+    admin_layout('รายละเอียดทีมสมัคร', function () use ($row) {
+        $members = json_decode((string) ($row['members_json'] ?? ''), true);
+        if (!is_array($members)) {
+            $members = [];
+        }
+        $fields = [
+            'ทีม' => $row['team_name'],
+            'ผู้ติดต่อ' => $row['contact_name'],
+            'เบอร์โทร' => $row['phone'],
+            'อีเมล' => $row['email'],
+            'LINE ID' => $row['line_id'],
+            'จังหวัด' => $row['province'],
+            'สถาบัน / หน่วยงาน' => $row['institution'],
+            'เพลงที่ใช้แข่งขัน' => $row['cover_song'],
+            'ศิลปินต้นแบบ' => $row['artist_name'],
+            'จำนวนสมาชิก' => $row['member_count'] . ' คน',
+            'หน้าที่ส่งข้อมูล' => $row['source_path'],
+            'วันที่สมัคร' => date('Y-m-d H:i', strtotime((string) $row['created_at'])),
+        ];
+        ?>
+        <div class="grid gap-6 xl:grid-cols-[1fr_420px]">
+            <div class="space-y-5">
+                <div class="rounded-[1.5rem] bg-white p-6 shadow-sm">
+                    <div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                        <div>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-coral">Fresh Beat Contest</p>
+                            <h2 class="mt-2 text-2xl font-extrabold"><?= e($row['team_name']) ?></h2>
+                        </div>
+                        <span class="w-fit rounded-full px-3 py-1 text-xs font-bold ring-1 <?= e(contest_status_class((string) $row['status'])) ?>"><?= e(contest_status_label((string) $row['status'])) ?></span>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <?php foreach ($fields as $label => $value): ?>
+                            <div class="rounded-2xl bg-slate-50 p-4">
+                                <div class="text-xs font-bold text-slate-400"><?= e($label) ?></div>
+                                <div class="mt-1 break-words text-sm font-extrabold text-slate-800"><?= e((string) ($value ?: '-')) ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="mt-5 rounded-2xl bg-slate-50 p-4">
+                        <div class="text-xs font-bold text-slate-400">รายละเอียดเพิ่มเติม</div>
+                        <p class="mt-2 whitespace-pre-line break-words text-sm leading-7 text-slate-700"><?= e((string) ($row['message'] ?: '-')) ?></p>
+                    </div>
+                </div>
+                <div class="rounded-[1.5rem] bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <h3 class="text-lg font-extrabold">รายชื่อสมาชิก</h3>
+                        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-extrabold text-slate-600"><?= count($members) ?> คน</span>
+                    </div>
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <?php foreach ($members as $index => $member): ?>
+                            <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div class="text-xs font-extrabold text-coral">#<?= (int) $index + 1 ?></div>
+                                <div class="mt-1 font-extrabold"><?= e((string) ($member['name'] ?? '-')) ?></div>
+                                <div class="mt-2 space-y-1 text-xs font-semibold text-slate-500">
+                                    <div>อายุ: <?= e((string) (($member['age'] ?? '') ?: '-')) ?></div>
+                                    <div>โทร: <?= e((string) (($member['phone'] ?? '') ?: '-')) ?></div>
+                                    <div>เลขบัตร/เอกสาร: <?= e((string) (($member['id'] ?? '') ?: '-')) ?></div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                        <?php if (!$members): ?>
+                            <div class="rounded-2xl bg-slate-50 p-5 text-sm font-semibold text-slate-400">ยังไม่มีรายชื่อสมาชิก</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div class="rounded-[1.5rem] bg-white p-6 shadow-sm">
+                    <h3 class="text-lg font-extrabold">ช่องทางติดต่อ</h3>
+                    <div class="mt-4 grid gap-2">
+                        <a href="tel:<?= e(preg_replace('/\D+/', '', (string) $row['phone'])) ?>" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white hover:bg-coral"><i data-lucide="phone-call" class="h-4 w-4"></i> โทรหาผู้สมัคร</a>
+                        <?php if ($row['email']): ?><a href="mailto:<?= e($row['email']) ?>" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-800 hover:bg-slate-200"><i data-lucide="mail" class="h-4 w-4"></i> ส่งอีเมล</a><?php endif; ?>
+                        <?php if ($row['music_url']): ?><a href="<?= e($row['music_url']) ?>" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-extrabold text-amber-800 hover:bg-amber-100"><i data-lucide="music" class="h-4 w-4"></i> เปิดลิงก์เพลง</a><?php endif; ?>
+                    </div>
+                </div>
+                <form method="post" action="/admin/contest/update" class="rounded-[1.5rem] bg-white p-6 shadow-sm">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                    <label class="admin-label">สถานะ</label>
+                    <select name="status" class="admin-field bg-white">
+                        <?php foreach (contest_status_options() as $status => $label): ?>
+                            <option value="<?= e($status) ?>" <?= $row['status'] === $status ? 'selected' : '' ?>><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <label class="admin-label mt-4">โน้ตภายใน</label>
+                    <textarea name="admin_note" class="admin-field min-h-36"><?= e((string) ($row['admin_note'] ?? '')) ?></textarea>
+                    <button class="mt-4 w-full rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white hover:bg-coral">บันทึกสถานะ</button>
+                    <a href="/admin/contest" class="mt-3 inline-flex w-full justify-center rounded-2xl bg-slate-100 px-5 py-3 text-sm font-extrabold text-slate-700 hover:bg-slate-200">กลับรายการสมัคร</a>
+                </form>
+                <form method="post" action="/admin/contest/delete" onsubmit="return confirm('ยืนยันการลบทีมสมัครนี้?')">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
+                    <button class="w-full rounded-2xl bg-red-50 px-5 py-3 text-sm font-extrabold text-red-600 hover:bg-red-100">ลบทีมสมัครนี้</button>
+                </form>
+            </div>
+        </div>
+        <?php
+    });
+}
+
+function update_contest_entry(): void
+{
+    require_admin();
+    verify_csrf();
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $status = (string) ($_POST['status'] ?? 'new');
+    if (!array_key_exists($status, contest_status_options())) {
+        $status = 'new';
+    }
+    $stmt = db()->prepare("UPDATE contest_entries SET status = ?, admin_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+    $stmt->execute([$status, trim((string) ($_POST['admin_note'] ?? '')), $id]);
+    flash('อัปเดตสถานะทีมสมัครเรียบร้อยแล้ว');
+    redirect('/admin/contest/view?id=' . $id);
+}
+
+function delete_contest_entry(): void
+{
+    require_admin();
+    verify_csrf();
+
+    $id = (int) ($_POST['id'] ?? 0);
+    $stmt = db()->prepare("DELETE FROM contest_entries WHERE id = ?");
+    $stmt->execute([$id]);
+    flash('ลบทีมสมัครเรียบร้อยแล้ว');
+    redirect('/admin/contest');
+}
+
 function admin_backup(): void
 {
     $files = array_merge(
@@ -4534,7 +5380,7 @@ function download_backup()
 function database_dump_sql(): string
 {
     $pdo = db();
-    $tables = ['users', 'banners', 'portfolios', 'clients', 'articles', 'gallery_images', 'inquiries', 'system_settings'];
+    $tables = ['users', 'banners', 'portfolios', 'clients', 'articles', 'gallery_images', 'inquiries', 'contest_entries', 'system_settings'];
     $sql = "-- Bigevent database backup\n-- Generated: " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
 
     foreach ($tables as $table) {
@@ -5694,6 +6540,10 @@ if ($path === '/') {
     sitemap_xml();
 } elseif (preg_match('#^/s/(th|en)/(p|a)/(\d+)$#', $path, $m)) {
     redirect_short_link($m[1], $m[2], (int) $m[3]);
+} elseif ($path === '/fresh-beat-cover-dance-contest' && $method === 'POST') {
+    handle_contest_registration();
+} elseif ($path === '/fresh-beat-cover-dance-contest') {
+    contest_page();
 } elseif ($path === '/about') {
     about_page();
 } elseif ($path === '/services') {
@@ -5742,6 +6592,16 @@ if ($path === '/') {
     admin_crm_view((int) ($_GET['id'] ?? 0));
 } elseif ($path === '/admin/crm/update' && $method === 'POST') {
     update_crm();
+} elseif ($path === '/admin/contest') {
+    admin_contest();
+} elseif ($path === '/admin/contest/export') {
+    export_contest_csv();
+} elseif ($path === '/admin/contest/view') {
+    admin_contest_view((int) ($_GET['id'] ?? 0));
+} elseif ($path === '/admin/contest/update' && $method === 'POST') {
+    update_contest_entry();
+} elseif ($path === '/admin/contest/delete' && $method === 'POST') {
+    delete_contest_entry();
 } elseif ($path === '/admin/tools') {
     admin_tools();
 } elseif ($path === '/admin/settings' && $method === 'POST') {
