@@ -1264,6 +1264,8 @@ function seo_page_key(string $path): ?string
         '/articles' => 'articles',
         '/contact' => 'contact',
         '/fresh-beat-cover-dance-contest' => 'contest',
+        '/ecatalog-sisaket' => 'ecatalog_sisaket',
+        '/thaibanland-camp/vendors' => 'thaiban_vendors',
         '/privacy-policy' => 'privacy',
         '/cookie-policy' => 'cookie',
     ][$path] ?? null;
@@ -3038,6 +3040,37 @@ function home_page(): void
             </div>
         </section>
 
+        <section class="bg-slate-950 px-4 py-12 text-white sm:px-6 lg:px-8">
+            <a href="<?= e(url_for('/ecatalog-sisaket')) ?>" class="group mx-auto grid max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,.28),transparent_38%),linear-gradient(135deg,#172033,#020617)] shadow-soft lg:grid-cols-[1fr_280px]">
+                <div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
+                    <div class="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.22em] text-gold">
+                        <i data-lucide="book-open" class="h-4 w-4"></i>
+                        E-Catalog Sisaket
+                    </div>
+                    <h2 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">
+                        <?= current_lang() === 'en' ? 'Explore Sisaket businesses in an interactive catalog.' : 'เปิดโลกธุรกิจศรีสะเกษผ่านแคตตาล็อกแบบพลิกหน้า' ?>
+                    </h2>
+                    <p class="mt-4 max-w-2xl text-base leading-8 text-slate-300">
+                        <?= current_lang() === 'en' ? 'Browse the digital catalog like a real book, with full-screen viewing on desktop and mobile.' : 'เลือกชมอีแคตตาล็อกเสมือนหนังสือจริง พลิกดูได้ทุกหน้า พร้อมโหมดเต็มหน้าจอทั้งคอมพิวเตอร์และมือถือ' ?>
+                    </p>
+                    <span class="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition group-hover:bg-gold">
+                        <?= current_lang() === 'en' ? 'Open e-catalog' : 'เปิดอีแคตตาล็อก' ?>
+                        <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                    </span>
+                </div>
+                <div class="relative hidden min-h-72 overflow-hidden border-l border-white/10 lg:block">
+                    <div class="absolute left-1/2 top-1/2 h-48 w-36 -translate-x-[68%] -translate-y-1/2 -rotate-6 rounded-r-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 shadow-2xl transition duration-500 group-hover:-translate-x-[72%] group-hover:-rotate-12"></div>
+                    <div class="absolute left-1/2 top-1/2 grid h-52 w-40 -translate-x-[32%] -translate-y-1/2 rotate-3 place-items-center rounded-r-xl border border-gold/35 bg-gradient-to-br from-[#f59e0b] via-[#ea580c] to-[#9f1239] p-6 text-center shadow-2xl transition duration-500 group-hover:-translate-x-[26%] group-hover:rotate-6">
+                        <div>
+                            <i data-lucide="map-pinned" class="mx-auto h-9 w-9 text-white"></i>
+                            <p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-white/75">E-Catalog</p>
+                            <p class="mt-2 text-xl font-black text-white">SISAKET</p>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </section>
+
         <section class="bg-[#f3f0ea] px-4 py-20 sm:px-6 lg:px-8">
             <div class="mx-auto max-w-7xl">
                 <div class="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -4241,6 +4274,366 @@ function contest_page(): void
     }, $campaign['seo_description']);
 }
 
+function ecatalog_sisaket_page(): void
+{
+    $lang = current_lang();
+    $isEn = $lang === 'en';
+    $pagePath = '/ecatalog-sisaket';
+    $bookUrl = 'https://online.fliphtml5.com/eppkb/egfq/';
+    $title = $isEn ? 'E-Catalog Sisaket' : 'อีแคตตาล็อก ศรีสะเกษ';
+    $description = $isEn
+        ? 'Browse the Sisaket e-catalog online in an interactive page-flip format.'
+        : 'เปิดชมอีแคตตาล็อกศรีสะเกษออนไลน์ในรูปแบบหนังสือพลิกหน้า';
+
+    set_alternate_paths($pagePath, '/en' . $pagePath);
+    set_schema_extra([
+        [
+            '@type' => 'CreativeWork',
+            'name' => $title,
+            'description' => $description,
+            'url' => absolute_url(localized_url($lang, $pagePath)),
+            'inLanguage' => $isEn ? 'en' : 'th',
+        ],
+    ]);
+
+    layout($title, function () use ($isEn, $bookUrl): void {
+        ?>
+        <main class="bg-slate-950">
+            <section class="border-b border-white/10 bg-slate-950 px-5 py-6 text-white sm:px-8">
+                <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-[.22em] text-coral">E-CATALOG SISAKET</p>
+                        <h1 class="mt-2 text-2xl font-black sm:text-3xl"><?= $isEn ? 'Sisaket E-Catalog' : 'อีแคตตาล็อก ศรีสะเกษ' ?></h1>
+                    </div>
+                    <a href="<?= e($bookUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-white/15">
+                        <i data-lucide="maximize-2" class="h-4 w-4"></i>
+                        <?= $isEn ? 'Open full screen' : 'เปิดเต็มหน้าจอ' ?>
+                    </a>
+                </div>
+            </section>
+            <section class="mx-auto max-w-[1600px] bg-[#202124]">
+                <iframe
+                    src="<?= e($bookUrl) ?>"
+                    title="<?= $isEn ? 'Sisaket E-Catalog' : 'อีแคตตาล็อก ศรีสะเกษ' ?>"
+                    class="block h-[calc(100dvh-8rem)] min-h-[680px] w-full border-0"
+                    loading="eager"
+                    allow="fullscreen"
+                    allowfullscreen
+                ></iframe>
+            </section>
+        </main>
+        <?php
+    }, $description);
+}
+
+function thaibanland_vendor_page(): void
+{
+    $lang = current_lang();
+    $isEn = $lang === 'en';
+    $pagePath = '/thaibanland-camp/vendors';
+    $lineUrl = trim(setting('line_oa_url', LINE_OA_URL));
+    if ($lineUrl === '') {
+        $lineUrl = LINE_OA_URL;
+    }
+
+    $title = $isEn
+        ? 'Vendor Registration | Thaibanland Camp 2026'
+        : 'สมัครร้านค้า | ไทบ้านแลนด์แคมป์ 2569';
+    $description = $isEn
+        ? 'Vendor registration for Thaibanland Camp, 7-8 August 2026 at Koh Klang Nam, Sisaket. Apply through the official LINE OA.'
+        : 'เปิดรับสมัครร้านค้าภายในงานไทบ้านแลนด์แคมป์ 7-8 สิงหาคม 2569 ณ เกาะกลางน้ำ จังหวัดศรีสะเกษ สมัครผ่าน LINE OA';
+
+    set_alternate_paths($pagePath, '/en' . $pagePath);
+    set_schema_extra([
+        [
+            '@type' => 'Event',
+            'name' => $isEn ? 'Thaibanland Camp 2026 - Vendor Registration' : 'ไทบ้านแลนด์แคมป์ 2569 - เปิดรับสมัครร้านค้า',
+            'startDate' => '2026-08-07',
+            'endDate' => '2026-08-08',
+            'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+            'eventStatus' => 'https://schema.org/EventScheduled',
+            'image' => [absolute_url('/assets/img/thaibanland-camp-vendors.jpg')],
+            'location' => [
+                '@type' => 'Place',
+                'name' => $isEn ? 'Koh Klang Nam, Sisaket' : 'เกาะกลางน้ำ จังหวัดศรีสะเกษ',
+                'address' => [
+                    '@type' => 'PostalAddress',
+                    'addressLocality' => 'Sisaket',
+                    'addressCountry' => 'TH',
+                ],
+            ],
+            'organizer' => [
+                '@type' => 'Organization',
+                'name' => setting('site_name', 'Bigevent Organizer'),
+                'url' => absolute_url('/'),
+            ],
+            'url' => absolute_url(localized_url($lang, $pagePath)),
+            'description' => $description,
+        ],
+    ]);
+
+    layout($title, function () use ($isEn, $lineUrl): void {
+        $copy = $isEn ? [
+            'eyebrow' => 'THAIBANLAND CAMP 2026',
+            'title' => 'Bring your shop to the camp.',
+            'intro' => 'Applications are now open for selected vendors at Thaibanland Camp. Tell our team about your shop directly through the official LINE OA.',
+            'apply' => 'Apply via LINE OA',
+            'guide' => 'What to prepare',
+            'dateLabel' => 'Event dates',
+            'date' => '7-8 August 2026',
+            'venue' => 'Koh Klang Nam, Sisaket',
+            'registration' => 'Registration',
+            'registrationDate' => '29-31 July 2026',
+            'result' => 'Selection result',
+            'resultDate' => '3 August 2026',
+            'event' => 'Event day',
+            'eventDate' => '7-8 August 2026',
+            'capacity' => 'Vendor zones',
+            'food' => 'Food zone',
+            'foodDetail' => '30 booths available',
+            'product' => 'General product',
+            'productDetail' => '10 booths available',
+            'truck' => 'Food truck',
+            'truckDetail' => '10 spots available',
+            'feeTitle' => 'Simple, clear costs',
+            'feeNote' => 'No booth rental fee. Vendors pay a refundable deposit and waste-management fee before the event.',
+            'deposit' => 'Refundable deposit',
+            'depositValue' => '1,000 THB',
+            'waste' => 'Waste-management fee',
+            'wasteValue' => '200 THB',
+            'total' => 'Pay before event',
+            'totalValue' => '1,200 THB',
+            'includedTitle' => 'Provided on site',
+            'includedOne' => 'Lighting and one electrical socket per booth',
+            'includedTwo' => 'No booth rental fee',
+            'includedThree' => 'Vendors bring their own tables and chairs',
+            'prepareTitle' => 'Send these details in LINE OA',
+            'prepareIntro' => 'Complete details help the committee review your shop quickly.',
+            'prepareOne' => 'Shop name',
+            'prepareTwo' => 'Photos of your shop and products or food',
+            'prepareThree' => 'Price list',
+            'prepareFour' => 'Owner full name and contact number',
+            'noticeTitle' => 'Please note',
+            'notice' => 'Duplicate applications are not accepted. The organizer will select vendors and contact approved shops directly.',
+            'mapTitle' => 'Vendor layout at Koh Klang Nam',
+            'mapCopy' => 'The site plan shows food, product and food-truck zones around the camp area.',
+            'finalTitle' => 'Ready to join Thaibanland Camp?',
+            'finalCopy' => 'Message the official LINE OA with your shop details to begin the application.',
+            'finalButton' => 'Chat with LINE OA',
+        ] : [
+            'eyebrow' => 'ไทบ้านแลนด์แคมป์ 2569',
+            'title' => 'พาร้านของคุณมาเจอกับคนในแคมป์',
+            'intro' => 'เปิดรับสมัครร้านค้าภายในงานไทบ้านแลนด์แคมป์ ส่งรายละเอียดร้านให้ทีมงานพิจารณาได้โดยตรงผ่าน LINE OA ทางการ',
+            'apply' => 'สมัครผ่าน LINE OA',
+            'guide' => 'ดูสิ่งที่ต้องเตรียม',
+            'dateLabel' => 'วันจัดงาน',
+            'date' => '7-8 สิงหาคม 2569',
+            'venue' => 'เกาะกลางน้ำ จังหวัดศรีสะเกษ',
+            'registration' => 'เปิดรับลงทะเบียน',
+            'registrationDate' => '29-31 ก.ค. 69',
+            'result' => 'ประกาศผล',
+            'resultDate' => '3 ส.ค. 69',
+            'event' => 'วันจัดงาน',
+            'eventDate' => '7-8 ส.ค. 69',
+            'capacity' => 'โซนร้านค้าภายในงาน',
+            'food' => 'บูธอาหาร',
+            'foodDetail' => '30 ร้าน',
+            'product' => 'บูธสินค้าทั่วไป',
+            'productDetail' => '10 ร้าน',
+            'truck' => 'ฟู้ดทรัค',
+            'truckDetail' => '10 ร้าน',
+            'feeTitle' => 'ค่าใช้จ่ายชัดเจน',
+            'feeNote' => 'ไม่มีค่าเช่าพื้นที่ ชำระเฉพาะเงินประกันร้านค้าและค่าขยะก่อนวันงาน',
+            'deposit' => 'เงินประกันร้านค้า',
+            'depositValue' => '1,000 บาท',
+            'waste' => 'ค่าขยะ',
+            'wasteValue' => '200 บาท',
+            'total' => 'ชำระก่อนวันงาน',
+            'totalValue' => '1,200 บาท',
+            'includedTitle' => 'สิ่งที่ทีมงานจัดเตรียมให้',
+            'includedOne' => 'ไฟส่องสว่างและปลั๊กไฟ 1 จุดต่อบูธ',
+            'includedTwo' => 'ไม่มีค่าเช่าพื้นที่',
+            'includedThree' => 'ร้านค้านำโต๊ะและเก้าอี้มาเอง',
+            'prepareTitle' => 'ส่งข้อมูลเหล่านี้ใน LINE OA',
+            'prepareIntro' => 'กรอกรายละเอียดให้ครบ เพื่อให้ทีมงานพิจารณาร้านได้รวดเร็ว',
+            'prepareOne' => 'ชื่อร้าน',
+            'prepareTwo' => 'รูปถ่ายร้านค้า และอาหารหรือสินค้าที่นำมาขาย',
+            'prepareThree' => 'รายการราคาที่ขาย',
+            'prepareFour' => 'ชื่อ-สกุล และเบอร์ติดต่อ',
+            'noticeTitle' => 'เงื่อนไขการสมัคร',
+            'notice' => 'ห้ามลงทะเบียนซ้ำ ทีมงานจะคัดเลือกร้านค้า และติดต่อกลับเฉพาะร้านค้าที่ได้รับการพิจารณา',
+            'mapTitle' => 'ผังพื้นที่ร้านค้า ณ เกาะกลางน้ำ',
+            'mapCopy' => 'ดูตำแหน่งโซนอาหาร สินค้าทั่วไป และฟู้ดทรัคภายในบรรยากาศแคมป์',
+            'finalTitle' => 'พร้อมพาร้านมาอยู่ในแคมป์แล้วหรือยัง',
+            'finalCopy' => 'กดคุยกับ LINE OA ทางการ แล้วส่งรายละเอียดร้านเพื่อเริ่มสมัครได้ทันที',
+            'finalButton' => 'คุยกับ LINE OA',
+        ];
+        ?>
+        <style>
+            .vendor-camp-hero { background: #120b0d; }
+            .vendor-camp-poster { box-shadow: 18px 18px 0 rgba(239, 117, 72, .15); }
+            .vendor-camp-line { background: #06c755; }
+            .vendor-camp-grid-line { background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px); background-size: 28px 28px; }
+        </style>
+        <main>
+            <section class="vendor-camp-hero vendor-camp-grid-line overflow-hidden text-white">
+                <div class="mx-auto grid max-w-7xl items-center gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:px-10 lg:py-20">
+                    <div>
+                        <p class="inline-flex items-center gap-2 rounded-full border border-orange-300/40 bg-white/10 px-4 py-2 text-xs font-bold tracking-[.15em] text-orange-200">
+                            <span class="h-2 w-2 rounded-full bg-orange-400"></span><?= e($copy['eyebrow']) ?>
+                        </p>
+                        <h1 class="mt-6 max-w-3xl text-4xl font-black leading-[1.05] sm:text-6xl"><?= e($copy['title']) ?></h1>
+                        <p class="mt-6 max-w-2xl text-base leading-8 text-slate-200 sm:text-lg"><?= e($copy['intro']) ?></p>
+                        <div class="mt-7 flex flex-wrap gap-3 text-sm font-bold">
+                            <span class="rounded-lg border border-white/15 bg-white/10 px-4 py-3"><?= e($copy['dateLabel']) ?>: <?= e($copy['date']) ?></span>
+                            <span class="rounded-lg border border-white/15 bg-white/10 px-4 py-3"><?= e($copy['venue']) ?></span>
+                        </div>
+                        <div class="mt-8 flex flex-wrap gap-3">
+                            <a href="<?= e($lineUrl) ?>" target="_blank" rel="noopener noreferrer" class="vendor-camp-line inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-black text-white transition hover:brightness-110">
+                                <i data-lucide="message-circle" class="h-5 w-5"></i><?= e($copy['apply']) ?><i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                            </a>
+                            <a href="#vendor-guide" class="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">
+                                <i data-lucide="list-checks" class="h-5 w-5"></i><?= e($copy['guide']) ?>
+                            </a>
+                        </div>
+                    </div>
+                    <figure class="mx-auto w-full max-w-sm lg:max-w-md">
+                        <img src="/assets/img/thaibanland-camp-vendors.jpg" alt="<?= e($copy['eyebrow']) ?>" class="vendor-camp-poster aspect-[4/5] w-full rounded-lg border border-white/15 object-cover" loading="eager">
+                    </figure>
+                </div>
+            </section>
+
+            <section class="bg-[#fff8ef] py-14 sm:py-18">
+                <div class="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <?php foreach ([
+                            ['calendar-days', $copy['registration'], $copy['registrationDate']],
+                            ['badge-check', $copy['result'], $copy['resultDate']],
+                            ['tent-tree', $copy['event'], $copy['eventDate']],
+                        ] as [$icon, $label, $date]): ?>
+                            <div class="rounded-lg border border-[#e8d6c8] bg-white p-6">
+                                <i data-lucide="<?= e($icon) ?>" class="h-6 w-6 text-[#d75a3d]"></i>
+                                <p class="mt-5 text-sm font-bold text-slate-500"><?= e($label) ?></p>
+                                <p class="mt-1 text-2xl font-black text-slate-950"><?= e($date) ?></p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-white py-16 sm:py-20">
+                <div class="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
+                    <div class="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <p class="text-sm font-black tracking-[.18em] text-[#d75a3d]">VENDOR ZONES</p>
+                            <h2 class="mt-3 text-3xl font-black text-slate-950 sm:text-4xl"><?= e($copy['capacity']) ?></h2>
+                        </div>
+                        <a href="<?= e($lineUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-sm font-black text-[#087f42] hover:underline">
+                            <?= e($copy['apply']) ?><i data-lucide="arrow-right" class="h-4 w-4"></i>
+                        </a>
+                    </div>
+                    <div class="mt-9 grid gap-4 md:grid-cols-3">
+                        <?php foreach ([
+                            ['utensils-crossed', $copy['food'], $copy['foodDetail'], '01'],
+                            ['shopping-bag', $copy['product'], $copy['productDetail'], '02'],
+                            ['truck', $copy['truck'], $copy['truckDetail'], '03'],
+                        ] as [$icon, $name, $detail, $number]): ?>
+                            <article class="rounded-lg border border-slate-200 p-6">
+                                <div class="flex items-start justify-between">
+                                    <span class="text-sm font-black text-[#d75a3d]"><?= e($number) ?></span>
+                                    <i data-lucide="<?= e($icon) ?>" class="h-7 w-7 text-slate-900"></i>
+                                </div>
+                                <h3 class="mt-10 text-2xl font-black text-slate-950"><?= e($name) ?></h3>
+                                <p class="mt-2 text-base font-bold text-slate-600"><?= e($detail) ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-[#18202c] py-16 text-white sm:py-20">
+                <div class="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[.85fr_1.15fr] lg:px-10">
+                    <div>
+                        <p class="text-sm font-black tracking-[.18em] text-orange-300">VENDOR SUPPORT</p>
+                        <h2 class="mt-3 text-3xl font-black sm:text-4xl"><?= e($copy['feeTitle']) ?></h2>
+                        <p class="mt-5 max-w-xl leading-8 text-slate-300"><?= e($copy['feeNote']) ?></p>
+                        <h3 class="mt-9 text-lg font-black"><?= e($copy['includedTitle']) ?></h3>
+                        <ul class="mt-4 space-y-3 text-sm leading-6 text-slate-200">
+                            <?php foreach ([$copy['includedOne'], $copy['includedTwo'], $copy['includedThree']] as $item): ?>
+                                <li class="flex gap-3"><i data-lucide="check" class="mt-0.5 h-5 w-5 shrink-0 text-orange-300"></i><span><?= e($item) ?></span></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <?php foreach ([
+                            [$copy['deposit'], $copy['depositValue']],
+                            [$copy['waste'], $copy['wasteValue']],
+                            [$copy['total'], $copy['totalValue']],
+                        ] as [$label, $value]): ?>
+                            <div class="rounded-lg border border-white/15 bg-white/5 p-6">
+                                <p class="text-sm font-bold text-slate-300"><?= e($label) ?></p>
+                                <p class="mt-4 text-3xl font-black text-orange-200"><?= e($value) ?></p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </section>
+
+            <section id="vendor-guide" class="bg-[#f5f5f3] py-16 sm:py-20">
+                <div class="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:px-10">
+                    <div>
+                        <p class="text-sm font-black tracking-[.18em] text-[#d75a3d]">APPLICATION GUIDE</p>
+                        <h2 class="mt-3 text-3xl font-black text-slate-950 sm:text-4xl"><?= e($copy['prepareTitle']) ?></h2>
+                        <p class="mt-5 max-w-2xl leading-8 text-slate-600"><?= e($copy['prepareIntro']) ?></p>
+                        <ol class="mt-8 grid gap-3 sm:grid-cols-2">
+                            <?php foreach ([$copy['prepareOne'], $copy['prepareTwo'], $copy['prepareThree'], $copy['prepareFour']] as $index => $item): ?>
+                                <li class="flex items-start gap-4 rounded-lg border border-slate-200 bg-white p-5">
+                                    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white"><?= $index + 1 ?></span>
+                                    <span class="pt-0.5 text-sm font-bold leading-6 text-slate-800"><?= e($item) ?></span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </div>
+                    <aside class="rounded-lg border border-[#f0bf9f] bg-[#fff5ea] p-7">
+                        <i data-lucide="shield-alert" class="h-8 w-8 text-[#d75a3d]"></i>
+                        <h3 class="mt-6 text-2xl font-black text-slate-950"><?= e($copy['noticeTitle']) ?></h3>
+                        <p class="mt-4 leading-8 text-slate-700"><?= e($copy['notice']) ?></p>
+                        <a href="<?= e($lineUrl) ?>" target="_blank" rel="noopener noreferrer" class="vendor-camp-line mt-8 inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-black text-white">
+                            <i data-lucide="message-circle" class="h-5 w-5"></i><?= e($copy['apply']) ?>
+                        </a>
+                    </aside>
+                </div>
+            </section>
+
+            <section class="bg-white py-16 sm:py-20">
+                <div class="mx-auto grid max-w-7xl gap-8 px-5 sm:px-8 lg:grid-cols-[.85fr_1.15fr] lg:px-10">
+                    <div>
+                        <p class="text-sm font-black tracking-[.18em] text-[#d75a3d]">SITE PLAN</p>
+                        <h2 class="mt-3 text-3xl font-black text-slate-950 sm:text-4xl"><?= e($copy['mapTitle']) ?></h2>
+                        <p class="mt-5 leading-8 text-slate-600"><?= e($copy['mapCopy']) ?></p>
+                    </div>
+                    <figure class="overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                        <img src="/assets/img/thaibanland-camp-map.jpg" alt="<?= e($copy['mapTitle']) ?>" class="h-full w-full object-cover" loading="lazy">
+                    </figure>
+                </div>
+            </section>
+
+            <section class="bg-[#d75a3d] py-16 text-white sm:py-20">
+                <div class="mx-auto flex max-w-7xl flex-col items-start justify-between gap-7 px-5 sm:px-8 md:flex-row md:items-end lg:px-10">
+                    <div class="max-w-2xl">
+                        <h2 class="text-3xl font-black sm:text-4xl"><?= e($copy['finalTitle']) ?></h2>
+                        <p class="mt-4 text-base leading-8 text-white/90"><?= e($copy['finalCopy']) ?></p>
+                    </div>
+                    <a href="<?= e($lineUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-white px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-orange-50">
+                        <i data-lucide="message-circle" class="h-5 w-5 text-[#06c755]"></i><?= e($copy['finalButton']) ?><i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                    </a>
+                </div>
+            </section>
+        </main>
+        <?php
+    }, $description, '/assets/img/thaibanland-camp-vendors.jpg');
+}
+
 function handle_contest_registration(): void
 {
     verify_csrf();
@@ -4371,9 +4764,9 @@ function robots_txt()
 function sitemap_xml()
 {
     $urls = [];
-    foreach (['/', '/fresh-beat-cover-dance-contest', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
-        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/fresh-beat-cover-dance-contest', '/services', '/portfolio'], true) ? '0.9' : '0.8');
-        $changefreq = in_array($staticPath, ['/', '/fresh-beat-cover-dance-contest', '/portfolio', '/articles'], true) ? 'weekly' : 'monthly';
+    foreach (['/', '/fresh-beat-cover-dance-contest', '/ecatalog-sisaket', '/thaibanland-camp/vendors', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
+        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/fresh-beat-cover-dance-contest', '/ecatalog-sisaket', '/thaibanland-camp/vendors', '/services', '/portfolio'], true) ? '0.9' : '0.8');
+        $changefreq = in_array($staticPath, ['/', '/fresh-beat-cover-dance-contest', '/thaibanland-camp/vendors', '/portfolio', '/articles'], true) ? 'weekly' : 'monthly';
         $alternates = [
             'th-TH' => absolute_url(localized_url('th', $staticPath)),
             'en' => absolute_url(localized_url('en', $staticPath)),
@@ -6597,6 +6990,10 @@ if ($path === '/') {
     handle_contest_registration();
 } elseif ($path === '/fresh-beat-cover-dance-contest') {
     contest_page();
+} elseif ($path === '/ecatalog-sisaket') {
+    ecatalog_sisaket_page();
+} elseif ($path === '/thaibanland-camp/vendors') {
+    thaibanland_vendor_page();
 } elseif ($path === '/about') {
     about_page();
 } elseif ($path === '/services') {
