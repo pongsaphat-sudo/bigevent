@@ -2022,17 +2022,9 @@ function layout(string $title, callable $content, string $description = '', stri
                         wait_for_update: 500
                     });
                     window.bigeventLoadGoogleAnalytics = () => {
-                        if (window.bigeventGoogleAnalyticsLoaded) return;
-                        window.bigeventGoogleAnalyticsLoaded = true;
                         window.gtag('consent', 'update', {
                             analytics_storage: 'granted'
                         });
-                        window.gtag('js', new Date());
-                        window.gtag('config', measurementId);
-                        const script = document.createElement('script');
-                        script.async = true;
-                        script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
-                        document.head.appendChild(script);
                     };
                     try {
                         const savedConsent = JSON.parse(localStorage.getItem(consentKey) || 'null');
@@ -2042,8 +2034,11 @@ function layout(string $title, callable $content, string $description = '', stri
                     } catch (error) {
                         // Keep analytics disabled if consent storage is unavailable or invalid.
                     }
+                    window.gtag('js', new Date());
+                    window.gtag('config', measurementId);
                 })();
             </script>
+            <script async src="https://www.googletagmanager.com/gtag/js?id=<?= e($googleAnalyticsMeasurementId) ?>"></script>
         <?php endif; ?>
     </head>
     <body class="flex min-h-screen flex-col bg-mist text-slate-900 antialiased">
