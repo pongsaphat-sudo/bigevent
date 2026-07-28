@@ -3092,7 +3092,31 @@ function home_page(): void
         </section>
 
         <section class="bg-slate-950 px-4 py-12 text-white sm:px-6 lg:px-8">
-            <a href="<?= e(url_for('/ecatalog-sisaket')) ?>" class="group mx-auto grid max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,.28),transparent_38%),linear-gradient(135deg,#172033,#020617)] shadow-soft lg:grid-cols-[1fr_280px]">
+            <div class="mx-auto max-w-7xl space-y-6">
+                <a href="<?= e(url_for('/thaibanland-camp/vendors')) ?>" class="group grid overflow-hidden rounded-[2rem] border border-orange-200/20 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,.24),transparent_38%),linear-gradient(135deg,#28100b,#120b0d)] shadow-soft lg:grid-cols-[1fr_320px]">
+                    <div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
+                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/30 bg-orange-300/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.22em] text-orange-200">
+                            <i data-lucide="store" class="h-4 w-4"></i>
+                            <?= current_lang() === 'en' ? 'Vendor applications open' : 'เปิดรับสมัครร้านค้า' ?>
+                        </div>
+                        <h2 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">
+                            <?= current_lang() === 'en' ? 'Bring your shop to Thaibanland Camp 2026.' : 'พาร้านของคุณมาเจอกับคนในไทบ้านแลนด์แคมป์' ?>
+                        </h2>
+                        <p class="mt-4 max-w-2xl text-base leading-8 text-slate-300">
+                            <?= current_lang() === 'en' ? 'Apply for food, general-product and food-truck zones through the official vendor LINE OA.' : 'สมัครบูธอาหาร สินค้าทั่วไป และฟู้ดทรัค พร้อมดูรายละเอียดค่าใช้จ่ายและเพิ่มเพื่อน LINE OA สำหรับร้านค้า' ?>
+                        </p>
+                        <span class="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-[#06c755] px-5 py-3 text-sm font-extrabold text-white transition group-hover:-translate-y-0.5 group-hover:bg-[#05b94f]">
+                            <?= current_lang() === 'en' ? 'View vendor application' : 'ดูรายละเอียดและสมัครร้านค้า' ?>
+                            <i data-lucide="arrow-right" class="h-4 w-4"></i>
+                        </span>
+                    </div>
+                    <div class="relative min-h-72 overflow-hidden border-t border-white/10 lg:border-l lg:border-t-0">
+                        <img src="/assets/img/thaibanland-camp-vendors.jpg" alt="<?= current_lang() === 'en' ? 'Thaibanland Camp vendor application' : 'เปิดรับสมัครร้านค้า ไทบ้านแลนด์แคมป์' ?>" class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
+                        <div class="absolute inset-0 bg-gradient-to-r from-[#120b0d]/70 via-transparent to-transparent lg:bg-gradient-to-l lg:from-transparent lg:to-[#120b0d]/25"></div>
+                    </div>
+                </a>
+
+                <a href="<?= e(url_for('/ecatalog-sisaket')) ?>" class="group grid overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,.28),transparent_38%),linear-gradient(135deg,#172033,#020617)] shadow-soft lg:grid-cols-[1fr_280px]">
                 <div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
                     <div class="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.22em] text-gold">
                         <i data-lucide="book-open" class="h-4 w-4"></i>
@@ -3120,6 +3144,7 @@ function home_page(): void
                     </div>
                 </div>
             </a>
+            </div>
         </section>
 
         <section class="bg-[#f3f0ea] px-4 py-20 sm:px-6 lg:px-8">
@@ -4382,10 +4407,7 @@ function thaibanland_vendor_page(): void
     $lang = current_lang();
     $isEn = $lang === 'en';
     $pagePath = '/thaibanland-camp/vendors';
-    $lineUrl = trim(setting('line_oa_url', LINE_OA_URL));
-    if ($lineUrl === '') {
-        $lineUrl = LINE_OA_URL;
-    }
+    $lineUrl = 'https://lin.ee/Woss7Bo';
 
     $title = $isEn
         ? 'Vendor Registration | Thaibanland Camp 2026'
@@ -4466,6 +4488,12 @@ function thaibanland_vendor_page(): void
             'prepareFour' => 'Owner full name and contact number',
             'noticeTitle' => 'Please note',
             'notice' => 'Duplicate applications are not accepted. The organizer will select vendors and contact approved shops directly.',
+            'lineEyebrow' => 'APPLY WITH LINE OA',
+            'lineTitle' => 'Scan or tap to add our vendor LINE',
+            'lineCopy' => 'Add the official vendor LINE OA, then send your shop details and photos to the team for review.',
+            'lineScan' => 'Scan this QR code with LINE',
+            'lineButton' => 'Add LINE friend',
+            'lineLinkLabel' => 'Official vendor LINE',
             'mapTitle' => 'Vendor layout at Koh Klang Nam',
             'mapCopy' => 'The site plan shows food, product and food-truck zones around the camp area.',
             'finalTitle' => 'Ready to join Thaibanland Camp?',
@@ -4513,6 +4541,12 @@ function thaibanland_vendor_page(): void
             'prepareFour' => 'ชื่อ-สกุล และเบอร์ติดต่อ',
             'noticeTitle' => 'เงื่อนไขการสมัคร',
             'notice' => 'ห้ามลงทะเบียนซ้ำ ทีมงานจะคัดเลือกร้านค้า และติดต่อกลับเฉพาะร้านค้าที่ได้รับการพิจารณา',
+            'lineEyebrow' => 'สมัครผ่าน LINE OA',
+            'lineTitle' => 'สแกนหรือกดเพิ่มเพื่อน เพื่อสมัครร้านค้า',
+            'lineCopy' => 'เพิ่มเพื่อน LINE OA สำหรับรับสมัครร้านค้า แล้วส่งรายละเอียดร้าน รูปถ่าย และรายการราคาให้ทีมงานพิจารณาได้ทันที',
+            'lineScan' => 'เปิด LINE แล้วสแกน QR Code นี้',
+            'lineButton' => 'เพิ่มเพื่อน LINE',
+            'lineLinkLabel' => 'LINE OA รับสมัครร้านค้า',
             'mapTitle' => 'ผังพื้นที่ร้านค้า ณ เกาะกลางน้ำ',
             'mapCopy' => 'ดูตำแหน่งโซนอาหาร สินค้าทั่วไป และฟู้ดทรัคภายในบรรยากาศแคมป์',
             'finalTitle' => 'พร้อมพาร้านมาอยู่ในแคมป์แล้วหรือยัง',
@@ -4569,6 +4603,49 @@ function thaibanland_vendor_page(): void
                             </div>
                         <?php endforeach; ?>
                     </div>
+                </div>
+            </section>
+
+            <section class="overflow-hidden bg-[#062d1a] py-16 text-white sm:py-20">
+                <div class="mx-auto grid max-w-7xl items-center gap-10 px-5 sm:px-8 lg:grid-cols-[1fr_.8fr] lg:px-10">
+                    <div class="max-w-2xl">
+                        <p class="text-sm font-black tracking-[.18em] text-[#7ff0a8]"><?= e($copy['lineEyebrow']) ?></p>
+                        <h2 class="mt-3 text-3xl font-black leading-tight sm:text-5xl"><?= e($copy['lineTitle']) ?></h2>
+                        <p class="mt-5 text-base leading-8 text-emerald-50/80"><?= e($copy['lineCopy']) ?></p>
+                        <div class="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                            <a
+                                href="<?= e($lineUrl) ?>"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-3 rounded-xl bg-[#06c755] px-6 py-4 text-base font-black text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-[#05b94f]"
+                            >
+                                <i data-lucide="message-circle" class="h-6 w-6"></i>
+                                <?= e($copy['lineButton']) ?>
+                                <i data-lucide="arrow-up-right" class="h-5 w-5"></i>
+                            </a>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-[.12em] text-emerald-200/70"><?= e($copy['lineLinkLabel']) ?></p>
+                                <a href="<?= e($lineUrl) ?>" target="_blank" rel="noopener noreferrer" class="mt-1 block text-sm font-bold text-white underline decoration-[#06c755] decoration-2 underline-offset-4 hover:text-[#7ff0a8]">lin.ee/Woss7Bo</a>
+                            </div>
+                        </div>
+                    </div>
+                    <a
+                        href="<?= e($lineUrl) ?>"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="group mx-auto block w-full max-w-sm rounded-3xl bg-white p-5 text-center shadow-2xl shadow-black/30 ring-1 ring-white/20 transition hover:-translate-y-1"
+                        aria-label="<?= e($copy['lineButton']) ?>"
+                    >
+                        <img
+                            src="/assets/img/thaibanland-vendor-line-qr.png"
+                            alt="<?= e($copy['lineScan']) ?>"
+                            class="aspect-square w-full rounded-2xl object-contain"
+                            loading="lazy"
+                        >
+                        <span class="mt-4 inline-flex items-center gap-2 text-sm font-black text-[#087f42]">
+                            <i data-lucide="scan-line" class="h-5 w-5"></i><?= e($copy['lineScan']) ?>
+                        </span>
+                    </a>
                 </div>
             </section>
 
