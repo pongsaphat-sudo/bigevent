@@ -1099,6 +1099,7 @@ function setting_defaults(): array
         'admin_contact_email' => 'Contact@bigevent.co.th',
         'default_og_image' => '/assets/img/og-default.png',
         'line_oa_url' => LINE_OA_URL,
+        'google_analytics_measurement_id' => 'G-N5PMHSMG51',
         'crm_notification_email' => CRM_NOTIFICATION_EMAIL,
         'crm_line_webhook_url' => getenv(CRM_LINE_WEBHOOK_ENV) ?: '',
         'google_maps_url' => 'https://maps.app.goo.gl/S1gbvFiQm2sfMyjt8',
@@ -1231,6 +1232,7 @@ function settings_schema(): array
             'description' => 'รวมค่าการเชื่อมต่อภายนอก',
             'fields' => [
                 'line_oa_url' => ['LINE OA URL', 'url', 'ลิงก์ LINE OA ที่ลูกค้ากดติดต่อ'],
+                'google_analytics_measurement_id' => ['Google Analytics Measurement ID', 'text', 'กรอกเฉพาะรหัส เช่น G-N5PMHSMG51 หรือเว้นว่างเพื่อปิดใช้งาน'],
                 'crm_line_webhook_url' => ['CRM Webhook URL', 'url', 'Webhook สำหรับส่งแจ้งเตือน CRM เข้า LINE หรือระบบอื่น'],
             ],
         ],
@@ -1946,6 +1948,10 @@ function layout(string $title, callable $content, string $description = '', stri
     foreach (schema_extra() as $extra) {
         $schema['@graph'][] = $extra;
     }
+    $googleAnalyticsMeasurementId = strtoupper(trim(setting('google_analytics_measurement_id')));
+    if (!preg_match('/^G-[A-Z0-9]+$/', $googleAnalyticsMeasurementId)) {
+        $googleAnalyticsMeasurementId = '';
+    }
     ?>
     <!doctype html>
     <html lang="<?= $lang === 'en' ? 'en' : 'th' ?>">
@@ -1999,6 +2005,46 @@ function layout(string $title, callable $content, string $description = '', stri
         <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
         <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
         <script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+        <?php if ($googleAnalyticsMeasurementId !== ''): ?>
+            <script>
+                (() => {
+                    const measurementId = <?= json_encode($googleAnalyticsMeasurementId, JSON_UNESCAPED_SLASHES) ?>;
+                    const consentKey = 'bigevent_cookie_consent';
+                    window.dataLayer = window.dataLayer || [];
+                    window.gtag = window.gtag || function () {
+                        window.dataLayer.push(arguments);
+                    };
+                    window.gtag('consent', 'default', {
+                        ad_storage: 'denied',
+                        analytics_storage: 'denied',
+                        ad_user_data: 'denied',
+                        ad_personalization: 'denied',
+                        wait_for_update: 500
+                    });
+                    window.bigeventLoadGoogleAnalytics = () => {
+                        if (window.bigeventGoogleAnalyticsLoaded) return;
+                        window.bigeventGoogleAnalyticsLoaded = true;
+                        window.gtag('consent', 'update', {
+                            analytics_storage: 'granted'
+                        });
+                        window.gtag('js', new Date());
+                        window.gtag('config', measurementId);
+                        const script = document.createElement('script');
+                        script.async = true;
+                        script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+                        document.head.appendChild(script);
+                    };
+                    try {
+                        const savedConsent = JSON.parse(localStorage.getItem(consentKey) || 'null');
+                        if (savedConsent?.value === 'all') {
+                            window.bigeventLoadGoogleAnalytics();
+                        }
+                    } catch (error) {
+                        // Keep analytics disabled if consent storage is unavailable or invalid.
+                    }
+                })();
+            </script>
+        <?php endif; ?>
     </head>
     <body class="flex min-h-screen flex-col bg-mist text-slate-900 antialiased">
         <header id="siteHeader" class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
@@ -2315,6 +2361,16 @@ function layout(string $title, callable $content, string $description = '', stri
                     localStorage.setItem(cookieConsentKey, payload);
                     document.cookie = `${cookieConsentKey}=${encodeURIComponent(value)}; Max-Age=31536000; Path=/; SameSite=Lax`;
                     cookieConsentBanner?.classList.add('hidden');
+                    if (value === 'all') {
+                        window.bigeventLoadGoogleAnalytics?.();
+                    } else {
+                        window.gtag?.('consent', 'update', {
+                            analytics_storage: 'denied',
+                            ad_storage: 'denied',
+                            ad_user_data: 'denied',
+                            ad_personalization: 'denied'
+                        });
+                    }
                 });
             });
             const galleryLightbox = document.getElementById('galleryLightbox');
@@ -5038,6 +5094,12 @@ function save_settings(): void
     if (!is_array($posted)) {
         $posted = [];
     }
+    $googleAnalyticsMeasurementId = strtoupper(trim((string) ($posted['google_analytics_measurement_id'] ?? '')));
+    if ($googleAnalyticsMeasurementId !== '' && !preg_match('/^G-[A-Z0-9]+$/', $googleAnalyticsMeasurementId)) {
+        flash('Google Analytics Measurement ID ไม่ถูกต้อง กรุณากรอกรหัสรูปแบบ G-XXXXXXXXXX', 'error');
+        redirect('/admin/settings');
+    }
+    $posted['google_analytics_measurement_id'] = $googleAnalyticsMeasurementId;
     foreach ($allowed as $key) {
         save_setting($key, trim((string) ($posted[$key] ?? '')));
     }
