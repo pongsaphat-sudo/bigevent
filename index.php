@@ -3111,7 +3111,7 @@ function home_page(): void
                         </span>
                     </div>
                     <div class="relative min-h-72 overflow-hidden border-t border-white/10 lg:border-l lg:border-t-0">
-                        <img src="/assets/img/thaibanland-camp-vendors.jpg" alt="<?= current_lang() === 'en' ? 'Thaibanland Camp vendor application' : 'เปิดรับสมัครร้านค้า ไทบ้านแลนด์แคมป์' ?>" class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
+                        <img src="/assets/img/thaibanland-camp-vendors-line.jpg" alt="<?= current_lang() === 'en' ? 'Thaibanland Camp vendor application' : 'เปิดรับสมัครร้านค้า ไทบ้านแลนด์แคมป์' ?>" class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
                         <div class="absolute inset-0 bg-gradient-to-r from-[#120b0d]/70 via-transparent to-transparent lg:bg-gradient-to-l lg:from-transparent lg:to-[#120b0d]/25"></div>
                     </div>
                 </a>
@@ -4425,7 +4425,7 @@ function thaibanland_vendor_page(): void
             'endDate' => '2026-08-08',
             'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
             'eventStatus' => 'https://schema.org/EventScheduled',
-            'image' => [absolute_url('/assets/img/thaibanland-camp-vendors.jpg')],
+            'image' => [absolute_url('/assets/img/thaibanland-camp-vendors-line.jpg')],
             'location' => [
                 '@type' => 'Place',
                 'name' => $isEn ? 'Koh Klang Nam, Sisaket' : 'เกาะกลางน้ำ จังหวัดศรีสะเกษ',
@@ -4583,7 +4583,7 @@ function thaibanland_vendor_page(): void
                         </div>
                     </div>
                     <figure class="mx-auto w-full max-w-sm lg:max-w-md">
-                        <img src="/assets/img/thaibanland-camp-vendors.jpg" alt="<?= e($copy['eyebrow']) ?>" class="vendor-camp-poster aspect-[4/5] w-full rounded-lg border border-white/15 object-cover" loading="eager">
+                        <img src="/assets/img/thaibanland-camp-vendors-line.jpg" alt="<?= e($copy['eyebrow']) ?>" class="vendor-camp-poster aspect-[4/5] w-full rounded-lg border border-white/15 object-cover" loading="eager">
                     </figure>
                 </div>
             </section>
@@ -4759,7 +4759,7 @@ function thaibanland_vendor_page(): void
             </section>
         </main>
         <?php
-    }, $description, '/assets/img/thaibanland-camp-vendors.jpg');
+    }, $description, '/assets/img/thaibanland-camp-vendors-line.jpg');
 }
 
 function handle_contest_registration(): void
