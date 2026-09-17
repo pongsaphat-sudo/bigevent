@@ -48,7 +48,11 @@ if (is_file($configPath)) {
 $root = __DIR__;
 $storageDir = $root . '/storage';
 $uploadDir = $root . '/uploads';
-$backupDir = $storageDir . '/backups';
+// Plesk serves httpdocs directly; keep database dumps in the subscription's
+// private home directory so the web server cannot serve them as static files.
+$backupDir = basename($root) === 'httpdocs'
+    ? dirname($root) . '/backups'
+    : $storageDir . '/backups';
 
 if (!is_dir($storageDir)) {
     mkdir($storageDir, 0775, true);
@@ -5939,9 +5943,10 @@ function delete_contest_entry(): void
 
 function admin_backup(): void
 {
+    global $backupDir;
     $files = array_merge(
-        glob(__DIR__ . '/storage/backups/*.sqlite') ?: [],
-        glob(__DIR__ . '/storage/backups/*.sql') ?: []
+        glob($backupDir . '/*.sqlite') ?: [],
+        glob($backupDir . '/*.sql') ?: []
     );
     rsort($files);
     admin_layout('Backup ฐานข้อมูล', function () use ($files) {
@@ -5949,7 +5954,7 @@ function admin_backup(): void
         <div class="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
                 <p class="text-sm font-semibold text-slate-500">สำรองฐานข้อมูลก่อนแก้ไขใหญ่หรือก่อนขึ้น Production</p>
-                <p class="mt-1 text-xs font-semibold text-slate-400">ไฟล์จะถูกเก็บไว้ใน storage/backups</p>
+                <p class="mt-1 text-xs font-semibold text-slate-400">ไฟล์สำรองเก็บในพื้นที่ที่เว็บเข้าถึงโดยตรงไม่ได้</p>
             </div>
             <form method="post" action="/admin/backup/create">
                 <?= csrf_field() ?>
@@ -5982,15 +5987,16 @@ function admin_backup(): void
 
 function create_backup(): void
 {
+    global $backupDir;
     require_admin();
     verify_csrf();
 
     if (db_is_mysql(db())) {
-        $target = __DIR__ . '/storage/backups/database-' . date('Ymd-His') . '.sql';
+        $target = $backupDir . '/database-' . date('Ymd-His') . '.sql';
         $ok = (bool) file_put_contents($target, database_dump_sql());
     } else {
         $source = __DIR__ . '/storage/database.sqlite';
-        $target = __DIR__ . '/storage/backups/database-' . date('Ymd-His') . '.sqlite';
+        $target = $backupDir . '/database-' . date('Ymd-His') . '.sqlite';
         $ok = is_file($source) && copy($source, $target);
     }
 
@@ -6004,12 +6010,13 @@ function create_backup(): void
 
 function download_backup()
 {
+    global $backupDir;
     require_admin();
     $file = basename(rawurldecode((string) ($_GET['file'] ?? '')));
     if (!preg_match('/^database-\d{8}-\d{6}\.(sqlite|sql)$/', $file)) {
         not_found();
     }
-    $path = __DIR__ . '/storage/backups/' . $file;
+    $path = $backupDir . '/' . $file;
     if (!is_file($path)) {
         not_found();
     }
