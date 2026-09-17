@@ -5945,8 +5945,8 @@ function admin_backup(): void
 {
     global $backupDir;
     $files = array_merge(
-        glob($backupDir . '/*.sqlite') ?: [],
-        glob($backupDir . '/*.sql') ?: []
+        glob($backupDir . '/database-*.sqlite') ?: [],
+        glob($backupDir . '/database-*.sql') ?: []
     );
     rsort($files);
     admin_layout('Backup ฐานข้อมูล', function () use ($files) {
