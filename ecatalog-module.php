@@ -579,11 +579,20 @@ function admin_ecatalog_form(?int $id = null): void
         ?>
         <form method="post" enctype="multipart/form-data" action="/admin/ecatalog/save" class="space-y-6">
             <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) ($row['id'] ?? 0) ?>">
+            <?php if ($id): ?>
+                <div class="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+                    <p class="font-extrabold">กำลังแก้ไข E-Catalog รายการ #<?= (int) $id ?></p>
+                    <p class="mt-1">การบันทึกหน้านี้จะเปลี่ยนเล่มเดิม รวมถึงหน้า URL และลิงก์ย่อที่แชร์ไปแล้ว หากเป็นหนังสือคนละเล่ม ให้สร้างรายการใหม่แทน</p>
+                    <a class="mt-3 inline-flex font-extrabold underline" href="/admin/ecatalog/new">+ เพิ่ม E-Catalog เป็นเล่มใหม่</a>
+                </div>
+            <?php endif; ?>
             <section class="rounded-[1.5rem] bg-white p-5 shadow-sm sm:p-6"><h2 class="text-lg font-extrabold">ข้อมูล E-Catalog</h2><div class="mt-5 grid gap-5 md:grid-cols-2"><?= input('title', 'ชื่อภาษาไทย *', $row['title'] ?? '') ?><?= input('title_en', 'ชื่อภาษาอังกฤษ', $row['title_en'] ?? '') ?><?= input('slug', 'Slug URL ภาษาไทย', $row['slug'] ?? '') ?><?= input('slug_en', 'Slug URL ภาษาอังกฤษ', $row['slug_en'] ?? '') ?><?= textarea('description', 'รายละเอียดภาษาไทย', $row['description'] ?? '', 'md:col-span-2') ?><?= textarea('description_en', 'รายละเอียดภาษาอังกฤษ', $row['description_en'] ?? '', 'md:col-span-2') ?><?= input('client_name', 'ชื่อลูกค้า', $row['client_name'] ?? '') ?><?= input('client_name_en', 'ชื่อลูกค้า EN', $row['client_name_en'] ?? '') ?><?= input('category', 'หมวดหมู่', $row['category'] ?? '') ?><?= input('category_en', 'หมวดหมู่ EN', $row['category_en'] ?? '') ?><?= input('publication_year', 'ปีเผยแพร่', $row['publication_year'] ?? date('Y'), 'number') ?><?= input('published_at', 'วันที่เผยแพร่', $row['published_at'] ?? date('Y-m-d'), 'date') ?><?= input('book_url', 'URL หนังสือภายนอก (ใช้เมื่อไม่มี PDF)', $row['book_url'] ?? '', 'url') ?><div><label class="admin-label">ลำดับการแสดง</label><input class="admin-field" type="number" name="sort_order" value="<?= (int) ($row['sort_order'] ?? 0) ?>"></div><div class="md:col-span-2 grid gap-4 sm:grid-cols-2"><?= checkbox('is_published', 'เผยแพร่บนหน้าบ้าน', (int) ($row['is_published'] ?? 0)) ?><?= checkbox('is_featured', 'แสดงเป็นรายการแนะนำหน้าแรก', (int) ($row['is_featured'] ?? 0)) ?></div></div></section>
             <?= image_input('cover_image', 'รูปหน้าปกหนังสือ E-Catalog (แนะนำภาพแนวตั้งแบบ A4 เช่น 1414 × 2000 px)', $row['cover_image_path'] ?? null) ?>
+            <?php if (!empty($row['cover_image_path'])): ?><label class="flex items-center gap-3 rounded-2xl bg-white p-4 text-sm font-bold text-slate-700"><input type="checkbox" name="remove_cover" value="1">ลบรูปปกเดิมและใช้ปกแบบจำลองอัตโนมัติ (หากเลือกไฟล์ใหม่ จะใช้ไฟล์ใหม่แทน)</label><?php endif; ?>
             <section class="rounded-[1.5rem] bg-white p-5 shadow-sm sm:p-6"><div class="flex items-start gap-3"><span class="grid h-11 w-11 place-items-center rounded-2xl bg-red-50 text-red-600"><i data-lucide="file-text" class="h-5 w-5"></i></span><div><h2 class="text-lg font-extrabold">ไฟล์ PDF สำหรับเปิดอ่านบนเว็บ</h2><p class="mt-1 text-sm leading-6 text-slate-500">อัปโหลด PDF แล้วระบบจะเปิดอ่าน/พลิกหน้าบนเว็บเราเองและให้ดาวน์โหลดได้ · สูงสุด 200 MB · หากมีทั้ง PDF และ URL ภายนอก ระบบจะเลือก PDF</p></div></div><?php if (!empty($row['pdf_path'])): ?><div class="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm"><span class="font-bold text-slate-600">มีไฟล์ PDF อยู่แล้ว</span><label class="flex items-center gap-2 text-red-600"><input type="checkbox" name="remove_pdf" value="1">ลบไฟล์เดิม</label></div><?php endif; ?><input class="admin-field mt-5" type="file" name="pdf_file" accept="application/pdf,.pdf"><p class="mt-2 text-xs text-slate-500">ถ้าเลือกไฟล์ใหม่ ระบบจะใช้ไฟล์ใหม่แทน แม้เลือก “ลบไฟล์เดิม” ไว้</p></section>
             <section class="rounded-[1.5rem] bg-white p-5 shadow-sm sm:p-6"><h2 class="text-lg font-extrabold">SEO รายเล่ม</h2><div class="mt-5 grid gap-5 md:grid-cols-2"><?= input('seo_focus_keyphrase', 'Focus keyphrase TH', $row['seo_focus_keyphrase'] ?? '') ?><?= input('seo_focus_keyphrase_en', 'Focus keyphrase EN', $row['seo_focus_keyphrase_en'] ?? '') ?><?= input('seo_title', 'SEO title TH', $row['seo_title'] ?? '') ?><?= input('seo_title_en', 'SEO title EN', $row['seo_title_en'] ?? '') ?><?= textarea('meta_description', 'Meta description TH', $row['meta_description'] ?? '', 'md:col-span-2') ?><?= textarea('meta_description_en', 'Meta description EN', $row['meta_description_en'] ?? '', 'md:col-span-2') ?></div></section>
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><a href="/admin/ecatalog" class="rounded-2xl bg-slate-100 px-5 py-3 text-center text-sm font-extrabold text-slate-700">ยกเลิก</a><button class="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-extrabold text-white hover:bg-coral">บันทึก E-Catalog</button></div>
+            <?php if ($id): ?><label class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-950"><input class="mt-1" type="checkbox" name="confirm_existing_catalog" value="1" required>ฉันยืนยันว่าต้องการอัปเดตเล่มเดิม (#<?= (int) $id ?>) ไม่ใช่สร้าง E-Catalog เล่มใหม่</label><?php endif; ?>
+            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><a href="/admin/ecatalog" class="rounded-2xl bg-slate-100 px-5 py-3 text-center text-sm font-extrabold text-slate-700">ยกเลิก</a><button class="rounded-2xl bg-slate-950 px-6 py-3 text-sm font-extrabold text-white hover:bg-coral"><?= $id ? 'บันทึกการแก้ไขเล่มเดิม #' . (int) $id : 'สร้าง E-Catalog เล่มใหม่' ?></button></div>
         </form>
         <?php
     });
@@ -659,6 +668,10 @@ function save_ecatalog(): void
     if ($id && !$existing) {
         not_found();
     }
+    if ($existing && !isset($_POST['confirm_existing_catalog'])) {
+        flash('โปรดยืนยันว่าต้องการแก้ไขเล่มเดิม หรือเลือกเพิ่ม E-Catalog เพื่อสร้างเล่มใหม่', 'error');
+        redirect('/admin/ecatalog/edit?id=' . $id);
+    }
     $title = trim((string) ($_POST['title'] ?? ''));
     if ($title === '') {
         flash('กรุณากรอกชื่อ E-Catalog ภาษาไทย', 'error');
@@ -694,7 +707,11 @@ function save_ecatalog(): void
         if ($pdf && $pdf !== $currentPdf) {
             $newPdf = $pdf;
         }
+        $hasCoverUpload = ($_FILES['cover_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
         $cover = upload_image('cover_image', $currentCover, 'ecatalog_cover');
+        if (!$hasCoverUpload && isset($_POST['remove_cover'])) {
+            $cover = null;
+        }
         if ($cover && $cover !== $currentCover) {
             $newCover = $cover;
         }

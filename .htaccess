@@ -1,9 +1,15 @@
 DirectoryIndex index.php
-Options -MultiViews
+Options -MultiViews -Indexes
+
+<FilesMatch "^(config\.php|database\.sqlite|\.env.*)$">
+    Require all denied
+</FilesMatch>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteBase /
+
+    RewriteRule ^storage(?:/|$) - [F,L]
 
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d

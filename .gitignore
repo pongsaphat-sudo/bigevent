@@ -2,6 +2,7 @@ storage/*.sqlite
 storage/*.sqlite-*
 storage/backups/*.sqlite
 storage/backups/*.sqlite-*
+storage/backups/*.sql
 storage/*.log
 storage/*.sql
 storage/ecatalog-pdfs/
