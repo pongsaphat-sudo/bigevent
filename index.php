@@ -182,6 +182,20 @@ function db_create_index(PDO $pdo, string $name, string $table, array $columns):
 
 function migrate(PDO $pdo): void
 {
+    // Schema checks are costly on MySQL; run them only when this version changes.
+    $schemaVersion = '2026-09-home-hero-1';
+    try {
+        $savedVersion = $pdo->query("SELECT setting_value FROM system_settings WHERE setting_key = 'schema_version' LIMIT 1")->fetchColumn();
+        if ($savedVersion === $schemaVersion) {
+            return;
+        }
+    } catch (PDOException $exception) {
+        // A fresh installation has no settings table yet; surface other failures.
+        if (!str_contains($exception->getMessage(), 'system_settings')) {
+            throw $exception;
+        }
+    }
+
     if (db_is_mysql($pdo)) {
         foreach ([
             "CREATE TABLE IF NOT EXISTS users (
@@ -211,6 +225,11 @@ function migrate(PDO $pdo): void
                 client VARCHAR(255) NULL,
                 location VARCHAR(255) NULL,
                 event_date VARCHAR(40) NULL,
+                published_at DATE NULL,
+                hero_title TEXT NULL,
+                hero_title_en TEXT NULL,
+                hero_summary TEXT NULL,
+                hero_summary_en TEXT NULL,
                 description MEDIUMTEXT NULL,
                 video_url TEXT NULL,
                 video_url_en TEXT NULL,
@@ -331,6 +350,11 @@ function migrate(PDO $pdo): void
             client TEXT,
             location TEXT,
             event_date TEXT,
+            published_at TEXT,
+            hero_title TEXT,
+            hero_title_en TEXT,
+            hero_summary TEXT,
+            hero_summary_en TEXT,
             description TEXT,
             video_url TEXT,
             video_url_en TEXT,
@@ -451,6 +475,19 @@ function migrate(PDO $pdo): void
     if (!db_column_exists($pdo, 'portfolios', 'slug')) {
         $pdo->exec("ALTER TABLE portfolios ADD COLUMN slug " . (db_is_mysql($pdo) ? "VARCHAR(255) NULL" : "TEXT"));
     }
+    if (!db_column_exists($pdo, 'portfolios', 'published_at')) {
+        $pdo->exec("ALTER TABLE portfolios ADD COLUMN published_at " . (db_is_mysql($pdo) ? "DATE NULL" : "TEXT"));
+        $rows = $pdo->query('SELECT id, event_date, created_at FROM portfolios')->fetchAll();
+        $backfill = $pdo->prepare('UPDATE portfolios SET published_at = ? WHERE id = ?');
+        foreach ($rows as $row) {
+            $eventDate = trim((string) ($row['event_date'] ?? ''));
+            $createdDate = substr((string) ($row['created_at'] ?? ''), 0, 10);
+            $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $eventDate) ? $eventDate : $createdDate;
+            if ($date !== '') {
+                $backfill->execute([$date, (int) $row['id']]);
+            }
+        }
+    }
 
     $localizedColumns = [
         'banners' => [
@@ -461,6 +498,10 @@ function migrate(PDO $pdo): void
         'portfolios' => [
             'slug_en' => 'TEXT',
             'title_en' => 'TEXT',
+            'hero_title' => 'TEXT',
+            'hero_title_en' => 'TEXT',
+            'hero_summary' => 'TEXT',
+            'hero_summary_en' => 'TEXT',
             'category_en' => 'TEXT',
             'client_en' => 'TEXT',
             'location_en' => 'TEXT',
@@ -535,14 +576,14 @@ function migrate(PDO $pdo): void
 
     $hasPortfolio = (int) $pdo->query("SELECT COUNT(*) FROM portfolios")->fetchColumn();
     if ($hasPortfolio === 0) {
-        $stmt = $pdo->prepare("INSERT INTO portfolios (title, category, client, location, event_date, description, image_path, is_featured, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $pdo->prepare("INSERT INTO portfolios (title, category, client, location, event_date, published_at, description, image_path, is_featured, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $items = [
             ['Product Launch 2026', 'Product Launch', 'NovaTech', 'Bangkok', '2026-03-08', 'งานเปิดตัวผลิตภัณฑ์พร้อมเวที LED, light design และ media session', 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1400&q=85', 1, 1],
             ['Annual Conference', 'Corporate Event', 'Apex Group', 'Queen Sirikit Center', '2026-02-14', 'ประชุมใหญ่ประจำปีพร้อมระบบ registration และ hybrid streaming', 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=1400&q=85', 1, 2],
             ['Brand Exhibition Booth', 'Exhibition', 'Urban Living', 'BITEC', '2026-01-22', 'ออกแบบและผลิตบูธนิทรรศการแบบ immersive สำหรับเก็บ lead หน้างาน', 'https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1400&q=85', 1, 3],
         ];
         foreach ($items as $item) {
-            $stmt->execute($item);
+            $stmt->execute([$item[0], $item[1], $item[2], $item[3], $item[4], $item[4], $item[5], $item[6], $item[7], $item[8]]);
         }
     }
 
@@ -567,6 +608,9 @@ function migrate(PDO $pdo): void
             date('Y-m-d'),
         ]);
     }
+
+    $versionStmt = $pdo->prepare("REPLACE INTO system_settings (setting_key, setting_value, updated_at) VALUES ('schema_version', ?, CURRENT_TIMESTAMP)");
+    $versionStmt->execute([$schemaVersion]);
 }
 
 function e(?string $value): string
@@ -1932,6 +1976,7 @@ function layout(string $title, callable $content, string $description = '', stri
     $ogImage = absolute_url($image ?: setting('default_og_image', '/assets/img/og-default.png'));
     $siteLogo = image_src(setting('site_logo', '/uploads/20260518222020-cropped-Big-Event-512p-200x200-e591625f.webp'));
     $navItems = ['/' => t('home'), '/about' => t('about'), '/services' => t('services'), '/portfolio' => t('portfolio'), '/clients' => t('clients'), '/articles' => t('articles'), '/ecatalog' => t('ecatalog')];
+    $activeNav = static fn(string $href): bool => $href === '/' ? $current === '/' : ($current === $href || str_starts_with($current, $href . '/'));
     $adminUser = current_admin();
     $isVendorLanding = $current === '/thaibanland-camp/vendors';
     $chatLineUrl = $isVendorLanding ? VENDOR_LINE_OA_URL : setting('line_oa_url', LINE_OA_URL);
@@ -2029,7 +2074,7 @@ function layout(string $title, callable $content, string $description = '', stri
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="<?= e($description) ?>">
         <meta name="robots" content="index, follow, max-image-preview:large">
-        <meta name="theme-color" content="#ffffff">
+        <meta name="theme-color" content="#0b1425">
         <link rel="canonical" href="<?= e($canonical) ?>">
         <link rel="alternate" hreflang="th-TH" href="<?= e($thaiUrl) ?>">
         <link rel="alternate" hreflang="en" href="<?= e($englishUrl) ?>">
@@ -2092,53 +2137,57 @@ function layout(string $title, callable $content, string $description = '', stri
         <?php endif; ?>
     </head>
     <body class="flex min-h-screen flex-col bg-mist text-slate-900 antialiased">
-        <header id="siteHeader" class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
-            <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <a class="site-skip-link" href="#mainContent"><?= $lang === 'en' ? 'Skip to content' : 'ข้ามไปยังเนื้อหา' ?></a>
+        <header id="siteHeader" class="site-header <?= $current === '/' ? 'site-header--home' : 'site-header--inner' ?>">
+            <nav class="site-header__nav" aria-label="<?= $lang === 'en' ? 'Main navigation' : 'เมนูหลัก' ?>">
                 <a href="<?= e(url_for('/')) ?>" class="flex shrink-0 items-center" aria-label="Bigevent Organizer">
                     <span class="site-logo-wordmark site-logo-wordmark--header">
                         <img src="<?= e($siteLogo) ?>" alt="Bigevent Organizer">
                     </span>
                 </a>
-                <div class="hidden items-center gap-5 md:flex lg:gap-6">
+                <div class="site-header__links">
                     <?php foreach ($navItems as $href => $label): ?>
-                        <a class="text-sm font-semibold <?= $current === $href ? 'text-coral' : 'text-slate-600 hover:text-slate-950' ?>" href="<?= e(url_for($href)) ?>"><?= e($label) ?></a>
+                        <a class="site-header__link <?= $activeNav($href) ? 'site-header__link--active' : '' ?>" href="<?= e(url_for($href)) ?>" <?= $activeNav($href) ? 'aria-current="page"' : '' ?>><?= e($label) ?></a>
                     <?php endforeach; ?>
                 </div>
-                <div class="flex items-center gap-2">
-                    <div class="hidden items-center rounded-full bg-slate-100 p-1 text-xs font-extrabold md:flex">
-                        <a href="<?= e(localized_url('th', $current)) ?>" class="rounded-full px-3 py-1.5 <?= $lang === 'th' ? 'bg-white text-coral shadow-sm' : 'text-slate-500 hover:text-slate-900' ?>">TH</a>
-                        <a href="<?= e(localized_url('en', $current)) ?>" class="rounded-full px-3 py-1.5 <?= $lang === 'en' ? 'bg-white text-coral shadow-sm' : 'text-slate-500 hover:text-slate-900' ?>">EN</a>
+                <div class="site-header__actions">
+                    <div class="site-header__language" aria-label="Language">
+                        <a href="<?= e(alternate_path('th', $current)) ?>" class="<?= $lang === 'th' ? 'is-active' : '' ?>" <?= $lang === 'th' ? 'aria-current="true"' : '' ?>>TH</a>
+                        <a href="<?= e(alternate_path('en', $current)) ?>" class="<?= $lang === 'en' ? 'is-active' : '' ?>" <?= $lang === 'en' ? 'aria-current="true"' : '' ?>>EN</a>
                     </div>
-                    <?php if ($adminUser): ?>
-                        <?= frontend_admin_dropdown($adminUser) ?>
-                    <?php else: ?>
-                        <button type="button" data-admin-login-open class="hidden rounded-full px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-white md:inline-flex">Admin</button>
-                    <?php endif; ?>
-                    <a href="<?= e(url_for('/contact')) ?>" class="hidden items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-soft hover:bg-coral sm:inline-flex">
+                    <div class="site-header__account">
+                        <?php if ($adminUser): ?>
+                            <?= frontend_admin_dropdown($adminUser) ?>
+                        <?php else: ?>
+                            <button type="button" data-admin-login-open class="site-header__admin-button">Admin</button>
+                        <?php endif; ?>
+                    </div>
+                    <a href="<?= e(url_for('/contact')) ?>" class="site-header__contact <?= $current === '/contact' ? 'is-active' : '' ?>" <?= $current === '/contact' ? 'aria-current="page"' : '' ?>>
                         <i data-lucide="calendar-check" class="h-4 w-4"></i>
                         <?= e(t('quote')) ?>
                     </a>
-                    <button id="mobileMenuButton" type="button" class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white md:hidden" aria-controls="mobileMenu" aria-expanded="false" aria-label="เปิดเมนู">
-                        <i data-lucide="menu" class="h-5 w-5"></i>
+                    <button id="mobileMenuButton" type="button" class="site-header__menu-button" aria-controls="mobileMenu" aria-expanded="false" aria-label="<?= $lang === 'en' ? 'Open menu' : 'เปิดเมนู' ?>">
+                        <i data-lucide="menu" class="site-header__menu-icon--open h-5 w-5"></i>
+                        <i data-lucide="x" class="site-header__menu-icon--close h-5 w-5"></i>
                     </button>
                 </div>
             </nav>
-            <div id="mobileMenu" class="hidden border-t border-slate-100 bg-white px-4 pb-4 shadow-sm md:hidden">
-                <div class="mx-auto flex max-w-7xl flex-col gap-2 pt-3">
+            <div id="mobileMenu" class="site-header__drawer hidden">
+                <div class="site-header__drawer-inner">
                     <?php foreach ($navItems as $href => $label): ?>
-                        <a class="rounded-2xl px-4 py-3 text-sm font-bold <?= $current === $href ? 'bg-coral/10 text-coral' : 'text-slate-700 hover:bg-slate-100' ?>" href="<?= e(url_for($href)) ?>"><?= e($label) ?></a>
+                        <a class="site-header__drawer-link <?= $activeNav($href) ? 'is-active' : '' ?>" href="<?= e(url_for($href)) ?>" <?= $activeNav($href) ? 'aria-current="page"' : '' ?>><?= e($label) ?></a>
                     <?php endforeach; ?>
-                    <div class="grid grid-cols-2 gap-2 pt-2">
-                        <a href="<?= e(localized_url('th', $current)) ?>" class="rounded-2xl <?= $lang === 'th' ? 'bg-coral/10 text-coral' : 'bg-slate-100 text-slate-700' ?> px-4 py-3 text-center text-sm font-bold">TH</a>
-                        <a href="<?= e(localized_url('en', $current)) ?>" class="rounded-2xl <?= $lang === 'en' ? 'bg-coral/10 text-coral' : 'bg-slate-100 text-slate-700' ?> px-4 py-3 text-center text-sm font-bold">EN</a>
+                    <div class="site-header__drawer-row">
+                        <a href="<?= e(alternate_path('th', $current)) ?>" class="site-header__drawer-link <?= $lang === 'th' ? 'is-active' : '' ?>">TH</a>
+                        <a href="<?= e(alternate_path('en', $current)) ?>" class="site-header__drawer-link <?= $lang === 'en' ? 'is-active' : '' ?>">EN</a>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 pt-2">
+                    <div class="site-header__drawer-row">
                         <?php if ($adminUser): ?>
                             <?= frontend_admin_dropdown($adminUser, true) ?>
                         <?php else: ?>
-                            <button type="button" data-admin-login-open class="rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-bold text-slate-700">Admin</button>
+                            <button type="button" data-admin-login-open class="site-header__drawer-link">Admin</button>
                         <?php endif; ?>
-                        <a href="<?= e(url_for('/contact')) ?>" class="rounded-2xl bg-slate-950 px-4 py-3 text-center text-sm font-bold text-white"><?= e(t('quote')) ?></a>
+                        <a href="<?= e(url_for('/contact')) ?>" class="site-header__drawer-link site-header__drawer-link--contact"><?= e(t('quote')) ?></a>
                     </div>
                 </div>
             </div>
@@ -2151,7 +2200,7 @@ function layout(string $title, callable $content, string $description = '', stri
             </div>
         <?php endif; ?>
 
-        <main class="flex-1 pt-16">
+        <main id="mainContent" class="flex-1 <?= $current === '/' ? 'site-main--home' : 'site-main--inner' ?>">
             <?php $content(); ?>
         </main>
 
@@ -2346,18 +2395,37 @@ function layout(string $title, callable $content, string $description = '', stri
             const syncHeader = () => {
                 siteHeader?.classList.toggle('is-scrolled', window.scrollY > 8);
             };
+            const closeMobileMenu = () => {
+                mobileMenu?.classList.add('hidden');
+                mobileMenuButton?.setAttribute('aria-expanded', 'false');
+                mobileMenuButton?.setAttribute('aria-label', document.documentElement.lang === 'en' ? 'Open menu' : 'เปิดเมนู');
+            };
             mobileMenuButton?.addEventListener('click', () => {
                 const isOpen = !mobileMenu?.classList.contains('hidden');
                 mobileMenu?.classList.toggle('hidden', isOpen);
                 mobileMenuButton.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+                mobileMenuButton.setAttribute('aria-label', isOpen
+                    ? (document.documentElement.lang === 'en' ? 'Open menu' : 'เปิดเมนู')
+                    : (document.documentElement.lang === 'en' ? 'Close menu' : 'ปิดเมนู'));
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && mobileMenu && !mobileMenu.classList.contains('hidden')) {
+                    closeMobileMenu();
+                    mobileMenuButton?.focus();
+                }
+            });
+            document.addEventListener('click', (event) => {
+                if (siteHeader && !siteHeader.contains(event.target)) closeMobileMenu();
+            });
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 1280) closeMobileMenu();
             });
             const adminLoginModal = document.getElementById('adminLoginModal');
             const setAdminLoginOpen = (open) => {
                 adminLoginModal?.classList.toggle('hidden', !open);
                 document.body.classList.toggle('overflow-hidden', open);
                 if (open) {
-                    mobileMenu?.classList.add('hidden');
-                    mobileMenuButton?.setAttribute('aria-expanded', 'false');
+                    closeMobileMenu();
                     window.setTimeout(() => adminLoginModal?.querySelector('input[name="email"]')?.focus(), 50);
                 }
             };
@@ -2522,8 +2590,12 @@ function layout(string $title, callable $content, string $description = '', stri
                 const copies = Array.from(hero.querySelectorAll('[data-home-hero-copy]'));
                 const dots = Array.from(hero.querySelectorAll('[data-home-hero-dot]'));
                 const strip = hero.querySelector('[data-home-work-strip]');
+                const pauseButton = hero.querySelector('[data-home-hero-toggle]');
+                const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
                 let current = 0;
                 let timer = null;
+                let manualPaused = false;
+                let interactionPaused = false;
                 const show = (index) => {
                     if (!slides.length) return;
                     current = (index + slides.length) % slides.length;
@@ -2542,15 +2614,14 @@ function layout(string $title, callable $content, string $description = '', stri
                     });
                     copies.forEach((copy, i) => copy.classList.toggle('hidden', i !== current));
                     dots.forEach((dot, i) => {
-                        dot.classList.toggle('w-10', i === current);
-                        dot.classList.toggle('w-2.5', i !== current);
-                        dot.classList.toggle('bg-white', i === current);
-                        dot.classList.toggle('bg-white/40', i !== current);
+                        dot.classList.toggle('is-active', i === current);
+                        dot.setAttribute('aria-pressed', i === current ? 'true' : 'false');
                     });
                 };
                 const restart = () => {
                     if (timer) window.clearInterval(timer);
-                    if (slides.length > 1) {
+                    timer = null;
+                    if (slides.length > 1 && !manualPaused && !interactionPaused && !reduceMotion.matches && !document.hidden) {
                         timer = window.setInterval(() => show(current + 1), 6500);
                     }
                 };
@@ -2566,8 +2637,30 @@ function layout(string $title, callable $content, string $description = '', stri
                     show(Number(dot.dataset.homeHeroDot || 0));
                     restart();
                 }));
+                pauseButton?.addEventListener('click', () => {
+                    manualPaused = !manualPaused;
+                    pauseButton.setAttribute('aria-pressed', manualPaused ? 'true' : 'false');
+                    pauseButton.textContent = manualPaused ? (document.documentElement.lang === 'en' ? 'Play' : 'เล่นสไลด์') : (document.documentElement.lang === 'en' ? 'Pause' : 'หยุดสไลด์');
+                    restart();
+                });
+                hero.addEventListener('mouseenter', () => { interactionPaused = true; restart(); });
+                hero.addEventListener('mouseleave', () => { interactionPaused = false; restart(); });
+                hero.addEventListener('focusin', () => { interactionPaused = true; restart(); });
+                hero.addEventListener('focusout', (event) => {
+                    if (!hero.contains(event.relatedTarget)) { interactionPaused = false; restart(); }
+                });
+                hero.addEventListener('keydown', (event) => {
+                    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                        event.preventDefault();
+                        show(current + (event.key === 'ArrowRight' ? 1 : -1));
+                        restart();
+                    }
+                });
+                document.addEventListener('visibilitychange', restart);
+                reduceMotion.addEventListener('change', restart);
                 hero.querySelector('[data-home-strip-prev]')?.addEventListener('click', () => strip?.scrollBy({ left: -320, behavior: 'smooth' }));
                 hero.querySelector('[data-home-strip-next]')?.addEventListener('click', () => strip?.scrollBy({ left: 320, behavior: 'smooth' }));
+                show(0);
                 restart();
             });
             syncHeader();
@@ -2968,13 +3061,36 @@ function admin_layout(string $title, callable $content): void
     <?php
 }
 
+function home_hero_text(array $item, string $field, string $fallback, int $limit): string
+{
+    $value = localized($item, $field) ?: localized($item, $fallback);
+    $value = trim((string) preg_replace('/\s+/u', ' ', strip_tags($value)));
+    return mb_strlen($value) > $limit ? rtrim(mb_substr($value, 0, $limit)) . '…' : $value;
+}
+
 function home_page(): void
 {
     $banner = all('banners', 'is_active = 1', 'sort_order ASC, id DESC')[0] ?? null;
-    $portfolios = all('portfolios', 'is_featured = 1', 'sort_order ASC, id DESC');
+    $portfolios = all('portfolios', 'is_featured = 1', 'published_at DESC, id DESC');
     $clients = all('clients', 'is_active = 1', 'sort_order ASC, id DESC');
     $articles = all('articles', 'is_published = 1', 'published_at DESC, id DESC');
     $lang = current_lang();
+    $latestWorkItems = [];
+    foreach (array_slice($portfolios, 0, 5) as $index => $item) {
+        $latestWorkItems[] = [
+            '@type' => 'ListItem',
+            'position' => $index + 1,
+            'name' => localized($item, 'title'),
+            'url' => absolute_url(portfolio_url($item)),
+        ];
+    }
+    if ($latestWorkItems) {
+        set_schema_extra([[
+            '@type' => 'ItemList',
+            'name' => $lang === 'en' ? 'Latest event projects' : 'ผลงานอีเวนต์ล่าสุด',
+            'itemListElement' => $latestWorkItems,
+        ]]);
+    }
     layout($lang === 'en' ? 'Home' : 'หน้าแรก', function () use ($banner, $portfolios, $clients, $articles) {
         $heroSlides = array_slice($portfolios, 0, 5);
         if (!$heroSlides && $banner) {
@@ -2985,83 +3101,103 @@ function home_page(): void
                 'category_en' => 'Full-service Event Organizer',
                 'description' => $banner['subtitle'] ?? '',
                 'description_en' => $banner['subtitle_en'] ?? '',
+                'hero_title' => $banner['title'] ?? '',
+                'hero_title_en' => $banner['title_en'] ?? '',
+                'hero_summary' => $banner['subtitle'] ?? '',
+                'hero_summary_en' => $banner['subtitle_en'] ?? '',
                 'image_path' => $banner['image_path'] ?? '',
                 'slug' => '',
                 'slug_en' => '',
             ]];
         }
+        if (!$heroSlides) {
+            $heroSlides = [[
+                'title' => current_lang() === 'en' ? 'Big Event Organizer' : 'บิ๊กอีเว้นท์ ออแกไนเซอร์',
+                'hero_title' => 'สร้างงานอีเวนต์ให้ทุกคนจดจำ',
+                'hero_title_en' => 'Events worth remembering',
+                'hero_summary' => 'ทีมเดียวดูแลครีเอทีฟ โปรดักชัน และการจัดงานครบวงจร',
+                'hero_summary_en' => 'Creative, production and on-site operations in one team.',
+                'image_path' => '/assets/img/og-default.png',
+            ]];
+        }
         ?>
-        <section class="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 text-white" data-home-hero>
-            <div class="absolute inset-0">
+        <section class="home-hero" data-home-hero aria-label="<?= current_lang() === 'en' ? 'Latest event projects' : 'ผลงานอีเวนต์ล่าสุด' ?>">
+          <div class="home-hero__stage">
+            <div class="home-hero__backdrop">
                 <?php foreach ($heroSlides as $index => $slide): ?>
                     <div class="absolute inset-0 transition-opacity duration-700 <?= $index === 0 ? 'opacity-100' : 'opacity-0' ?>" data-home-hero-slide>
                         <?php $slideImage = image_src($slide['image_path'] ?? null); $slideSrcset = responsive_image_srcset($slide['image_path'] ?? null); ?>
-                        <img <?= $index === 0 ? 'src="' . e($slideImage) . '"' : 'data-src="' . e($slideImage) . '"' ?> <?= $slideSrcset !== '' ? ($index === 0 ? 'srcset' : 'data-srcset') . '="' . e($slideSrcset) . '"' : '' ?> sizes="100vw" alt="<?= e(localized($slide, 'title')) ?>" class="h-full w-full object-cover" <?= $index === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"' ?>>
+                        <img <?= $index === 0 ? 'src="' . e($slideImage) . '"' : 'data-src="' . e($slideImage) . '"' ?> <?= $slideSrcset !== '' ? ($index === 0 ? 'srcset' : 'data-srcset') . '="' . e($slideSrcset) . '"' : '' ?> sizes="100vw" alt="" class="h-full w-full object-cover" <?= $index === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"' ?>>
                     </div>
                 <?php endforeach; ?>
                 <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,.94)_0%,rgba(2,6,23,.74)_38%,rgba(2,6,23,.18)_70%),linear-gradient(0deg,rgba(2,6,23,.82),rgba(2,6,23,.06)_46%,rgba(2,6,23,.42))]"></div>
                 <div class="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent"></div>
             </div>
-            <button type="button" class="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-white/10 backdrop-blur hover:bg-white/20 md:grid" data-home-hero-prev aria-label="Previous slide">
+            <button type="button" class="home-hero__arrow home-hero__arrow--prev" data-home-hero-prev aria-label="<?= current_lang() === 'en' ? 'Previous project' : 'ผลงานก่อนหน้า' ?>">
                 <i data-lucide="chevron-left" class="h-7 w-7"></i>
             </button>
-            <button type="button" class="absolute right-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-white/10 backdrop-blur hover:bg-white/20 md:grid" data-home-hero-next aria-label="Next slide">
+            <button type="button" class="home-hero__arrow home-hero__arrow--next" data-home-hero-next aria-label="<?= current_lang() === 'en' ? 'Next project' : 'ผลงานถัดไป' ?>">
                 <i data-lucide="chevron-right" class="h-7 w-7"></i>
             </button>
-            <div class="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl flex-col justify-end px-4 pb-10 pt-24 sm:px-6 lg:px-8 lg:pb-12">
-                <div class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-end">
-                    <div class="max-w-4xl">
+            <div class="home-hero__content">
+                <div class="home-hero__grid">
+                    <div class="home-hero__copy-frame">
+                        <h1 class="home-hero__eyebrow"><?= current_lang() === 'en' ? 'BIG EVENT · FULL-SERVICE EVENT ORGANIZER' : 'BIG EVENT · รับจัดงานอีเวนต์ครบวงจร' ?></h1>
                         <?php foreach ($heroSlides as $index => $slide): ?>
                             <?php $slideUrl = !empty($slide['id']) ? portfolio_url($slide) : url_for($banner['cta_url'] ?? '/portfolio'); ?>
-                            <div class="<?= $index === 0 ? '' : 'hidden' ?>" data-home-hero-copy>
-                                <div class="mb-5 flex flex-wrap gap-2">
-                                    <span class="inline-flex items-center rounded-lg bg-white/12 px-3 py-1.5 text-sm font-bold backdrop-blur"><?= e(localized($slide, 'category') ?: 'Full-service Event Organizer') ?></span>
-                                    <span class="inline-flex items-center rounded-lg bg-white/12 px-3 py-1.5 text-sm font-bold backdrop-blur"><?= current_lang() === 'en' ? 'Featured Work' : 'ผลงานเด่น' ?></span>
-                                </div>
-                                <h1 class="max-w-4xl text-4xl font-extrabold leading-tight tracking-normal sm:text-6xl lg:text-7xl"><?= e(localized($slide, 'title') ?: localized($banner ?? [], 'title')) ?></h1>
-                                <p class="mt-5 max-w-2xl text-base leading-8 text-slate-100 sm:text-lg"><?= e(localized($slide, 'description') ?: localized($banner ?? [], 'subtitle')) ?></p>
-                                <div class="mt-8 flex flex-wrap gap-3">
-                                    <a href="<?= e($slideUrl) ?>" class="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 shadow-soft hover:bg-gold">
+                            <div class="home-hero__copy <?= $index === 0 ? '' : 'hidden' ?>" data-home-hero-copy>
+                                <p class="home-hero__category"><?= e(localized($slide, 'category') ?: (current_lang() === 'en' ? 'Latest project' : 'ผลงานล่าสุด')) ?></p>
+                                <h2 class="home-hero__title"><?= e(home_hero_text($slide, 'hero_title', 'title', 100)) ?></h2>
+                                <p class="home-hero__summary"><?= e(home_hero_text($slide, 'hero_summary', 'description', 170)) ?></p>
+                                <div class="home-hero__buttons">
+                                    <a href="<?= e($slideUrl) ?>" class="home-hero__button home-hero__button--primary">
                                         <i data-lucide="play" class="h-4 w-4 fill-current"></i>
                                         <?= current_lang() === 'en' ? 'View This Work' : 'ดูผลงานนี้' ?>
                                     </a>
-                                    <a href="<?= e(url_for('/portfolio')) ?>" class="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-extrabold backdrop-blur hover:bg-white/15">
+                                    <a href="<?= e(url_for('/portfolio')) ?>" class="home-hero__button home-hero__button--secondary">
                                         <i data-lucide="bookmark" class="h-4 w-4"></i>
                                         <?= e(t('view_all')) ?>
                                     </a>
                                 </div>
                             </div>
                         <?php endforeach; ?>
-                        <div class="mt-8 flex items-center gap-2" data-home-hero-dots>
+                        <div class="home-hero__controls" data-home-hero-dots>
                             <?php foreach ($heroSlides as $index => $_): ?>
-                                <button type="button" class="h-2.5 rounded-full transition-all <?= $index === 0 ? 'w-10 bg-white' : 'w-2.5 bg-white/40' ?>" data-home-hero-dot="<?= $index ?>" aria-label="Go to slide <?= $index + 1 ?>"></button>
+                                <button type="button" class="home-hero__dot <?= $index === 0 ? 'is-active' : '' ?>" data-home-hero-dot="<?= $index ?>" aria-label="<?= current_lang() === 'en' ? 'Show project' : 'แสดงผลงาน' ?> <?= $index + 1 ?>" aria-pressed="<?= $index === 0 ? 'true' : 'false' ?>"></button>
                             <?php endforeach; ?>
+                            <?php if (count($heroSlides) > 1): ?><button type="button" class="home-hero__pause" data-home-hero-toggle aria-pressed="false"><?= current_lang() === 'en' ? 'Pause' : 'หยุดสไลด์' ?></button><?php endif; ?>
                         </div>
                     </div>
-                    <div class="hidden rounded-[1.75rem] border border-white/15 bg-white/10 p-5 shadow-soft backdrop-blur-xl lg:block">
-                        <p class="text-xs font-extrabold uppercase tracking-[0.24em] text-gold"><?= current_lang() === 'en' ? 'Event production stack' : 'ระบบงานครบสำหรับอีเวนต์' ?></p>
-                        <div class="mt-5 space-y-3">
+                    <div class="home-hero__services">
+                        <p class="home-hero__services-title"><?= current_lang() === 'en' ? 'Complete event production' : 'เราครบจบงานอีเวนต์' ?></p>
+                        <div class="home-hero__services-list">
                             <?php foreach (current_lang() === 'en' ? [['Creative', 'Concept, content direction and storytelling'], ['Production', 'Stage, lighting, sound and technical crew'], ['Operation', 'Registration, supplier and front-of-house flow']] : [['Creative', 'คอนเซ็ปต์ คอนเทนต์ และเรื่องเล่าของงาน'], ['Production', 'เวที แสง สี เสียง และทีมเทคนิค'], ['Operation', 'ลงทะเบียน ซัพพลายเออร์ และ flow หน้างาน']] as [$name, $desc]): ?>
-                                <div class="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
-                                    <div class="font-extrabold"><?= e($name) ?></div>
-                                    <p class="mt-1 text-sm leading-6 text-slate-300"><?= e($desc) ?></p>
+                                <div class="home-hero__service">
+                                    <div class="home-hero__service-name"><?= e($name) ?></div>
+                                    <p><?= e($desc) ?></p>
                                 </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
+            </div>
+          </div>
                 <?php if ($portfolios): ?>
-                    <div class="mt-12">
-                        <div class="mb-4 flex items-center justify-between gap-4">
-                            <h2 class="text-2xl font-extrabold"><?= current_lang() === 'en' ? 'Trending works' : 'ผลงานที่กำลังมาแรง' ?></h2>
-                            <div class="hidden gap-2 sm:flex">
+                    <div class="home-hero__rail">
+                      <div class="home-hero__rail-inner">
+                        <div class="home-hero__rail-heading">
+                            <h2><?= current_lang() === 'en' ? 'Latest work' : 'ผลงานล่าสุด' ?></h2>
+                            <div class="flex items-center gap-3">
+                                <a href="<?= e(url_for('/portfolio')) ?>" class="text-xs font-extrabold text-gold hover:text-white"><?= e(t('view_all')) ?></a>
+                                <div class="hidden gap-2 sm:flex">
                                 <button type="button" class="grid h-10 w-10 place-items-center rounded-full bg-white/10 backdrop-blur hover:bg-white/20" data-home-strip-prev aria-label="Scroll works left"><i data-lucide="chevron-left" class="h-5 w-5"></i></button>
                                 <button type="button" class="grid h-10 w-10 place-items-center rounded-full bg-white/10 backdrop-blur hover:bg-white/20" data-home-strip-next aria-label="Scroll works right"><i data-lucide="chevron-right" class="h-5 w-5"></i></button>
+                                </div>
                             </div>
                         </div>
-                        <div class="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" data-home-work-strip>
-                            <?php foreach ($portfolios as $item): ?>
-                                <a href="<?= portfolio_url($item) ?>" class="group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-2xl bg-slate-800 shadow-soft ring-1 ring-white/10 sm:h-60 sm:w-72">
+                        <div class="home-hero__work-strip" data-home-work-strip>
+                            <?php foreach (array_slice($portfolios, 0, 8) as $item): ?>
+                                <a href="<?= portfolio_url($item) ?>" class="home-hero__work-card group">
                                     <img src="<?= e(image_src($item['image_path'])) ?>" srcset="<?= e(responsive_image_srcset($item['image_path'])) ?>" sizes="(max-width: 640px) 208px, 288px" alt="<?= e(localized($item, 'title')) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" decoding="async">
                                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/88 via-slate-950/20 to-transparent"></div>
                                     <div class="absolute inset-x-0 bottom-0 p-4">
@@ -3071,55 +3207,9 @@ function home_page(): void
                                 </a>
                             <?php endforeach; ?>
                         </div>
+                      </div>
                     </div>
                 <?php endif; ?>
-            </div>
-        </section>
-
-        <section class="hidden">
-            <img src="<?= e(image_src($banner['image_path'] ?? null)) ?>" alt="Event hero" class="absolute inset-0 h-full w-full object-cover opacity-70" loading="lazy" decoding="async">
-            <div class="absolute inset-0 bg-[radial-gradient(circle_at_78%_22%,rgba(200,155,60,.42),transparent_28%),radial-gradient(circle_at_20%_75%,rgba(20,184,166,.24),transparent_26%),linear-gradient(105deg,rgba(2,6,23,.96),rgba(15,23,42,.80)_48%,rgba(127,29,29,.54))]"></div>
-            <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/85 to-transparent"></div>
-            <div class="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl items-center px-4 py-20 sm:px-6 lg:px-8">
-                <div class="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-end">
-                    <div class="max-w-4xl text-white">
-                        <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold backdrop-blur">
-                            <span class="h-2 w-2 rounded-full bg-gold"></span>
-                            Full-service Event Organizer
-                        </div>
-                        <h1 class="max-w-4xl text-5xl font-extrabold leading-tight tracking-normal sm:text-7xl"><?= e($banner ? localized($banner, 'title') : 'ออกแบบอีเวนต์ให้แบรนด์ของคุณถูกจดจำ') ?></h1>
-                        <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-100"><?= e($banner ? localized($banner, 'subtitle') : '') ?></p>
-                        <div class="mt-9 flex flex-wrap gap-3">
-                            <a href="<?= e(url_for($banner['cta_url'] ?? '/portfolio')) ?>" class="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-extrabold text-slate-950 shadow-soft hover:bg-gold">
-                                <?= e($banner ? localized($banner, 'cta_label') : t('view_work')) ?>
-                                <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                            </a>
-                            <a href="<?= e(url_for('/contact')) ?>" class="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-extrabold text-white backdrop-blur hover:bg-white/15">
-                                <?= e(t('talk_project')) ?>
-                            </a>
-                        </div>
-                        <div class="mt-10 grid max-w-2xl grid-cols-3 gap-3">
-                            <?php foreach (current_lang() === 'en' ? [['7+', 'real projects'], ['360°', 'event service'], ['2', 'language SEO']] : [['7+', 'ผลงานจริง'], ['360°', 'บริการครบวงจร'], ['2', 'ภาษา SEO']] as [$num, $label]): ?>
-                                <div class="border-l border-white/20 pl-4">
-                                    <div class="text-3xl font-extrabold text-white"><?= e($num) ?></div>
-                                    <div class="mt-1 text-xs font-bold uppercase tracking-wide text-slate-300"><?= e($label) ?></div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <div class="hidden rounded-[1.75rem] border border-white/15 bg-white/10 p-5 text-white shadow-soft backdrop-blur-xl lg:block">
-                        <p class="text-xs font-extrabold uppercase tracking-[0.24em] text-gold"><?= current_lang() === 'en' ? 'Built for event impact' : 'ออกแบบเพื่อให้งานมีแรงส่ง' ?></p>
-                        <div class="mt-5 space-y-3">
-                            <?php foreach (current_lang() === 'en' ? [['Creative', 'Concept, theme and event storytelling'], ['Production', 'Stage, light, sound and technical crew'], ['Operation', 'Registration, supplier and on-site flow']] : [['Creative', 'คอนเซ็ปต์ ธีม และเรื่องเล่าของงาน'], ['Production', 'เวที แสง สี เสียง และทีมเทคนิค'], ['Operation', 'ลงทะเบียน ซัพพลายเออร์ และ flow หน้างาน']] as [$name, $desc]): ?>
-                                <div class="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-                                    <div class="font-extrabold"><?= e($name) ?></div>
-                                    <p class="mt-1 text-sm leading-6 text-slate-300"><?= e($desc) ?></p>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </section>
 
         <section class="bg-white px-4 py-20 sm:px-6 lg:px-8">
@@ -3407,7 +3497,7 @@ function portfolio_detail_page(string $slug): void
             'url' => absolute_url(portfolio_url($item)),
             'creator' => ['@id' => absolute_url('/#organization')],
             'about' => localized($item, 'category') ?: 'Event Organizer',
-            'datePublished' => $item['event_date'] ?: substr((string) $item['created_at'], 0, 10),
+            'datePublished' => $item['published_at'] ?: substr((string) $item['created_at'], 0, 10),
         ],
     ]);
     layout($seoTitle, function () use ($item, $related, $gallery, $title, $description) {
@@ -4513,7 +4603,7 @@ function thaibanland_vendor_page(): void
             .vendor-camp-line { background: #06c755; }
             .vendor-camp-grid-line { background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px); background-size: 28px 28px; }
         </style>
-        <main>
+        <div>
             <section class="vendor-camp-hero vendor-camp-grid-line overflow-hidden text-white">
                 <div class="mx-auto grid max-w-7xl items-center gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:px-10 lg:py-20">
                     <div>
@@ -4710,7 +4800,7 @@ function thaibanland_vendor_page(): void
                     </a>
                 </div>
             </section>
-        </main>
+        </div>
         <?php
     }, $description, '/assets/img/thaibanland-camp-vendors-line-3007.jpg');
 }
@@ -4880,7 +4970,7 @@ function sitemap_xml()
         ];
     }
 
-    $portfolioStmt = db()->query("SELECT slug, slug_en, created_at FROM portfolios ORDER BY sort_order ASC, id DESC");
+    $portfolioStmt = db()->query("SELECT slug, slug_en, published_at, created_at FROM portfolios ORDER BY published_at DESC, id DESC");
     foreach ($portfolioStmt->fetchAll() as $portfolio) {
         if (!empty($portfolio['slug'])) {
             $alternates = [
@@ -4892,14 +4982,14 @@ function sitemap_xml()
                 'loc' => $alternates['th-TH'],
                 'priority' => '0.75',
                 'changefreq' => 'monthly',
-                'lastmod' => date('Y-m-d', strtotime($portfolio['created_at'] ?: 'now')),
+                'lastmod' => date('Y-m-d', strtotime($portfolio['published_at'] ?: $portfolio['created_at'] ?: 'now')),
                 'alternates' => $alternates,
             ];
             $urls[] = [
                 'loc' => $alternates['en'],
                 'priority' => '0.75',
                 'changefreq' => 'monthly',
-                'lastmod' => date('Y-m-d', strtotime($portfolio['created_at'] ?: 'now')),
+                'lastmod' => date('Y-m-d', strtotime($portfolio['published_at'] ?: $portfolio['created_at'] ?: 'now')),
                 'alternates' => $alternates,
             ];
         }
@@ -6429,11 +6519,16 @@ function admin_form(string $resource, ?int $id = null): void
                     <?= input('location', 'สถานที่', $row['location'] ?? '') ?>
                     <?= input('location_en', 'สถานที่ EN', $row['location_en'] ?? '') ?>
                     <?= input('event_date', 'วันที่จัดงาน', $row['event_date'] ?? '', 'date') ?>
+                    <?= input('published_at', 'วันที่เผยแพร่บนเว็บไซต์', $row['published_at'] ?? ($row['event_date'] ?? date('Y-m-d')), 'date') ?>
                     <input type="hidden" name="sort_order" value="<?= e((string) ($row['sort_order'] ?? 0)) ?>">
                     <?= input('video_url', 'Video URL', $row['video_url'] ?? ($row['video_url_en'] ?? '')) ?>
+                    <?= input('hero_title', 'ชื่อสั้นบนสไลด์หน้าแรก', $row['hero_title'] ?? '') ?>
+                    <?= input('hero_title_en', 'ชื่อสั้นบนสไลด์หน้าแรก EN', $row['hero_title_en'] ?? '') ?>
+                    <?= textarea('hero_summary', 'คำโปรยสั้นบนสไลด์หน้าแรก', $row['hero_summary'] ?? '', 'md:col-span-2') ?>
+                    <?= textarea('hero_summary_en', 'คำโปรยสั้นบนสไลด์หน้าแรก EN', $row['hero_summary_en'] ?? '', 'md:col-span-2') ?>
                     <?= textarea('description', 'รายละเอียดผลงาน', $row['description'] ?? '', 'md:col-span-2') ?>
                     <?= textarea('description_en', 'รายละเอียดผลงาน EN', $row['description_en'] ?? '', 'md:col-span-2') ?>
-                    <?= checkbox('is_featured', 'แสดงในหน้าแรก', (int)($row['is_featured'] ?? 0)) ?>
+                    <?= checkbox('is_featured', 'แสดงในหน้าแรก (เรียงตามวันที่เผยแพร่ล่าสุด)', (int)($row['is_featured'] ?? 0)) ?>
                     <?= portfolio_media_input($row['image_path'] ?? null, $galleryImages, 'md:col-span-2') ?>
                     <?= seo_editor_panel('portfolio', $row, 'md:col-span-2') ?>
                 <?php elseif ($resource === 'clients'): ?>
@@ -6805,6 +6900,16 @@ function save_resource(string $resource): void
         $slug = trim($_POST['slug'] ?? '') ?: slugify($_POST['title'] ?? '');
         $slugEn = trim($_POST['slug_en'] ?? '') ?: slugify($_POST['title_en'] ?? $slug);
         $videoUrl = trim((string) ($_POST['video_url'] ?? ''));
+        $publishedAt = trim((string) ($_POST['published_at'] ?? ''));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $publishedAt) || !checkdate((int) substr($publishedAt, 5, 2), (int) substr($publishedAt, 8, 2), (int) substr($publishedAt, 0, 4))) {
+            $publishedAt = date('Y-m-d');
+        }
+        $heroData = [
+            mb_substr(trim((string) ($_POST['hero_title'] ?? '')), 0, 110),
+            mb_substr(trim((string) ($_POST['hero_title_en'] ?? '')), 0, 110),
+            mb_substr(trim((string) ($_POST['hero_summary'] ?? '')), 0, 240),
+            mb_substr(trim((string) ($_POST['hero_summary_en'] ?? '')), 0, 240),
+        ];
         $seoData = [
             trim((string) ($_POST['seo_focus_keyphrase'] ?? '')),
             trim((string) ($_POST['seo_focus_keyphrase_en'] ?? '')),
@@ -6813,7 +6918,7 @@ function save_resource(string $resource): void
             trim((string) ($_POST['meta_description'] ?? '')),
             trim((string) ($_POST['meta_description_en'] ?? '')),
         ];
-        $baseData = [$_POST['title'] ?? '', $_POST['title_en'] ?? '', $slug, $slugEn, $_POST['category'] ?? '', $_POST['category_en'] ?? '', $_POST['client'] ?? '', $_POST['client_en'] ?? '', $_POST['location'] ?? '', $_POST['location_en'] ?? '', $_POST['event_date'] ?? '', $_POST['description'] ?? '', $_POST['description_en'] ?? '', $videoUrl, $videoUrl, ...$seoData];
+        $baseData = [$_POST['title'] ?? '', $_POST['title_en'] ?? '', $slug, $slugEn, $_POST['category'] ?? '', $_POST['category_en'] ?? '', $_POST['client'] ?? '', $_POST['client_en'] ?? '', $_POST['location'] ?? '', $_POST['location_en'] ?? '', $_POST['event_date'] ?? '', $publishedAt, ...$heroData, $_POST['description'] ?? '', $_POST['description_en'] ?? '', $videoUrl, $videoUrl, ...$seoData];
         $featured = isset($_POST['is_featured']) ? 1 : 0;
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         if ($id) {
@@ -6832,11 +6937,11 @@ function save_resource(string $resource): void
                 }
             }
             $data = [...$baseData, $image, $featured, $sortOrder];
-            $stmt = $pdo->prepare("UPDATE portfolios SET title=?, title_en=?, slug=?, slug_en=?, category=?, category_en=?, client=?, client_en=?, location=?, location_en=?, event_date=?, description=?, description_en=?, video_url=?, video_url_en=?, seo_focus_keyphrase=?, seo_focus_keyphrase_en=?, seo_title=?, seo_title_en=?, meta_description=?, meta_description_en=?, image_path=?, is_featured=?, sort_order=? WHERE id=?");
+            $stmt = $pdo->prepare("UPDATE portfolios SET title=?, title_en=?, slug=?, slug_en=?, category=?, category_en=?, client=?, client_en=?, location=?, location_en=?, event_date=?, published_at=?, hero_title=?, hero_title_en=?, hero_summary=?, hero_summary_en=?, description=?, description_en=?, video_url=?, video_url_en=?, seo_focus_keyphrase=?, seo_focus_keyphrase_en=?, seo_title=?, seo_title_en=?, meta_description=?, meta_description_en=?, image_path=?, is_featured=?, sort_order=? WHERE id=?");
             $stmt->execute([...$data, $id]);
         } else {
             $data = [...$baseData, $image, $featured, $sortOrder];
-            $stmt = $pdo->prepare("INSERT INTO portfolios (title, title_en, slug, slug_en, category, category_en, client, client_en, location, location_en, event_date, description, description_en, video_url, video_url_en, seo_focus_keyphrase, seo_focus_keyphrase_en, seo_title, seo_title_en, meta_description, meta_description_en, image_path, is_featured, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO portfolios (title, title_en, slug, slug_en, category, category_en, client, client_en, location, location_en, event_date, published_at, hero_title, hero_title_en, hero_summary, hero_summary_en, description, description_en, video_url, video_url_en, seo_focus_keyphrase, seo_focus_keyphrase_en, seo_title, seo_title_en, meta_description, meta_description_en, image_path, is_featured, sort_order) VALUES (" . implode(', ', array_fill(0, count($data), '?')) . ")");
             $stmt->execute($data);
             $id = (int) $pdo->lastInsertId();
             $uploadedGallery = save_gallery_uploads('portfolio', $id);

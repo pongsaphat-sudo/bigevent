@@ -296,7 +296,7 @@ function ecatalog_index_page(): void
     ]]);
     layout($title, function () use ($lang, $q, $category, $year, $catalogs, $categories, $years, $total, $page, $perPage): void {
         ?>
-        <main>
+        <div>
             <section class="relative overflow-hidden bg-slate-950 px-4 pb-20 pt-28 text-white sm:px-6 lg:px-8">
                 <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(225,91,79,.3),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(200,155,60,.22),transparent_35%)]"></div>
                 <div class="relative mx-auto max-w-7xl">
@@ -317,7 +317,7 @@ function ecatalog_index_page(): void
                     <?php if ($catalogs): ?><div class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3"><?php foreach ($catalogs as $catalog) { echo ecatalog_card($catalog); } ?></div><?= pagination_html($total, $page, $perPage) ?><?php else: ?><div class="mt-6 rounded-[2rem] bg-white p-12 text-center shadow-sm"><i data-lucide="book-x" class="mx-auto h-12 w-12 text-slate-300"></i><h2 class="mt-4 text-xl font-extrabold"><?= $lang === 'en' ? 'No catalogs found' : 'ไม่พบแคตตาล็อก' ?></h2></div><?php endif; ?>
                 </div>
             </section>
-        </main>
+        </div>
         <?php
     }, $description);
 }
@@ -352,7 +352,7 @@ function ecatalog_detail_page(string $slug): void
         $displayTitle = ecatalog_localized($catalog, 'title', $lang);
         $displayDescription = ecatalog_localized($catalog, 'description', $lang);
         ?>
-        <main class="bg-slate-950 text-white">
+        <div class="bg-slate-950 text-white">
             <section class="px-4 pb-10 pt-28 sm:px-6 lg:px-8">
                 <div class="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[300px_1fr] lg:items-center">
                     <?= ecatalog_book_mockup($catalog, 'hero') ?>
@@ -368,7 +368,7 @@ function ecatalog_detail_page(string $slug): void
             </section>
             <?php if ($hasNativePdf): ?><?= ecatalog_native_reader($catalog, $lang) ?><?php elseif ($bookUrl !== ''): ?><section class="mx-auto max-w-[1600px] bg-[#202124]"><iframe src="<?= e($bookUrl) ?>" title="<?= e($displayTitle) ?>" class="block h-[calc(100dvh-5rem)] min-h-[680px] w-full border-0" loading="eager" allow="fullscreen"></iframe><div class="border-t border-white/10 px-4 py-4 text-center text-sm text-slate-400"><?= $lang === 'en' ? 'If the reader does not load, use “Open full screen” above.' : 'หากตัวอ่านไม่แสดงผล กรุณากด “เปิดเต็มหน้าจอ” ด้านบน' ?></div></section><?php else: ?><section class="px-4 py-16 text-center"><div class="mx-auto max-w-xl rounded-[2rem] bg-white/5 p-10 ring-1 ring-white/10"><i data-lucide="book-x" class="mx-auto h-12 w-12 text-gold"></i><h2 class="mt-4 text-2xl font-extrabold"><?= $lang === 'en' ? 'No reader is available yet' : 'ยังไม่มีไฟล์สำหรับเปิดอ่าน' ?></h2></div></section><?php endif; ?>
             <?php if ($related): ?><section class="bg-[#f3f0ea] px-4 py-16 text-slate-950 sm:px-6 lg:px-8"><div class="mx-auto max-w-7xl"><h2 class="text-3xl font-black"><?= $lang === 'en' ? 'Related catalogs' : 'E-Catalog ที่เกี่ยวข้อง' ?></h2><div class="mt-7 grid gap-6 md:grid-cols-2 xl:grid-cols-3"><?php foreach ($related as $item) { echo ecatalog_card($item); } ?></div></div></section><?php endif; ?>
-        </main>
+        </div>
         <?php
     }, $description, ecatalog_cover($catalog));
 }
