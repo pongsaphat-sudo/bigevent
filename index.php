@@ -2034,7 +2034,7 @@ function layout(string $title, callable $content, string $description = '', stri
         <link rel="alternate" hreflang="th-TH" href="<?= e($thaiUrl) ?>">
         <link rel="alternate" hreflang="en" href="<?= e($englishUrl) ?>">
         <link rel="alternate" hreflang="x-default" href="<?= e($thaiUrl) ?>">
-        <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+        <link rel="icon" href="/assets/img/favicon-b.png?v=20260917" type="image/png" sizes="64x64">
         <title><?= e($pageTitle) ?></title>
         <meta name="keywords" content="รับจัดงานอีเวนต์, ออแกไนเซอร์, event organizer, product launch, corporate event, exhibition, รับจัดงานบริษัท">
         <meta property="og:locale" content="<?= $lang === 'en' ? 'en_US' : 'th_TH' ?>">
