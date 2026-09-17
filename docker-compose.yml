@@ -1,0 +1,42 @@
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: bigevent
+      MARIADB_USER: bigevent
+      MARIADB_PASSWORD: bigevent_local_dev
+      MARIADB_ROOT_PASSWORD: bigevent_root_local_dev
+      TZ: Asia/Bangkok
+    volumes:
+      - bigevent-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      DB_DRIVER: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: bigevent
+      DB_USERNAME: bigevent
+      DB_PASSWORD: bigevent_local_dev
+      DB_CHARSET: utf8mb4
+      TZ: Asia/Bangkok
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - .:/var/www/html
+
+volumes:
+  bigevent-db:

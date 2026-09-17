@@ -1,0 +1,8 @@
+.git
+.local-backups
+.playwright-cli
+output
+storage
+uploads
+*.tar
+*.zip

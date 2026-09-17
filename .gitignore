@@ -4,12 +4,16 @@ storage/backups/*.sqlite
 storage/backups/*.sqlite-*
 storage/*.log
 storage/*.sql
+storage/ecatalog-pdfs/
 database.sqlite
 config.php
 uploads/*
 !uploads/.gitkeep
 .playwright-cli/
 output/
+node_modules/
+storage/backups/perf-fix-*/
 .DS_Store
 backup_*.tar
+*.sql.zip
 .local-backups/

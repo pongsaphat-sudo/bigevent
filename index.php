@@ -31,6 +31,7 @@ const APP_NAME = 'Bigevent Organizer';
 const ADMIN_EMAIL = 'admin@bigevent.local';
 const ADMIN_PASSWORD = 'admin12345';
 const LINE_OA_URL = 'https://lin.ee/6jFk4df';
+const VENDOR_LINE_OA_URL = 'https://lin.ee/Woss7Bo';
 const CRM_NOTIFICATION_EMAIL = 'Contact@bigevent.co.th';
 const CRM_LINE_WEBHOOK_ENV = 'CRM_LINE_WEBHOOK_URL';
 const APP_ENV_ENV = 'APP_ENV';
@@ -423,6 +424,8 @@ function migrate(PDO $pdo): void
     ");
     }
 
+    migrate_ecatalogs($pdo);
+
     if (!db_column_exists($pdo, 'users', 'role')) {
         $pdo->exec("ALTER TABLE users ADD COLUMN role VARCHAR(40) NOT NULL DEFAULT 'admin'");
         $firstUserId = (int) $pdo->query("SELECT id FROM users ORDER BY id ASC LIMIT 1")->fetchColumn();
@@ -643,6 +646,7 @@ function t(string $key): string
             'portfolio' => 'ผลงาน',
             'clients' => 'ลูกค้า',
             'articles' => 'บทความ',
+            'ecatalog' => 'E-Catalog',
             'contact' => 'ติดต่อ',
             'quote' => 'ติดต่อสอบถาม',
             'talk_project' => 'คุยโปรเจกต์',
@@ -664,6 +668,7 @@ function t(string $key): string
             'portfolio' => 'Portfolio',
             'clients' => 'Clients',
             'articles' => 'Articles',
+            'ecatalog' => 'E-Catalog',
             'contact' => 'Contact',
             'quote' => 'Contact Us',
             'talk_project' => 'Discuss a Project',
@@ -1097,6 +1102,7 @@ function setting_defaults(): array
         'project_name' => APP_NAME,
         'company_name' => 'บริษัท บิ๊กอีเว้นท์ จำกัด',
         'admin_contact_email' => 'Contact@bigevent.co.th',
+        'site_logo' => '/uploads/20260518222020-cropped-Big-Event-512p-200x200-e591625f.webp',
         'default_og_image' => '/assets/img/og-default.png',
         'line_oa_url' => LINE_OA_URL,
         'google_analytics_measurement_id' => 'G-N5PMHSMG51',
@@ -1183,6 +1189,7 @@ function settings_schema(): array
                 'project_name' => ['ชื่อโปรเจกต์', 'text', 'เช่น Bigevent Organizer'],
                 'company_name' => ['ชื่อบริษัท', 'text', 'ชื่อบริษัทที่ใช้ในหน้าเว็บ'],
                 'admin_contact_email' => ['อีเมลหลัก', 'email', 'อีเมลกลางสำหรับติดต่อ'],
+                'site_logo' => ['โลโก้เว็บไซต์', 'text', 'ไฟล์โลโก้ เช่น /uploads/example.webp'],
                 'default_og_image' => ['Default OG Image', 'text', 'เช่น /assets/img/og-default.png'],
                 'google_maps_url' => ['Google Maps URL', 'url', 'ลิงก์แผนที่บริษัท'],
             ],
@@ -1328,6 +1335,7 @@ function image_upload_profiles(): array
         'work' => ['mode' => 'cover', 'width' => 1600, 'height' => 1000, 'quality' => 82],
         'article' => ['mode' => 'cover', 'width' => 1600, 'height' => 900, 'quality' => 82],
         'gallery' => ['mode' => 'fit', 'width' => 1800, 'height' => 1800, 'quality' => 80],
+        'ecatalog_cover' => ['mode' => 'fit', 'width' => 1414, 'height' => 2000, 'quality' => 84],
         'logo' => ['mode' => 'contain', 'width' => 800, 'height' => 450, 'quality' => 86],
         'default' => ['mode' => 'fit', 'width' => 1600, 'height' => 1600, 'quality' => 82],
     ];
@@ -1410,10 +1418,36 @@ function optimize_uploaded_image(string $tmp, string $originalName = '', string 
     imagedestroy($optimized);
 
     if ($saved && is_file($target)) {
+        build_responsive_uploads($target);
         return '/uploads/' . $name;
     }
 
     return null;
+}
+
+function build_responsive_uploads(string $sourcePath): void
+{
+    $source = @imagecreatefromwebp($sourcePath);
+    if (!$source) {
+        return;
+    }
+    $dir = __DIR__ . '/uploads/responsive';
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        imagedestroy($source);
+        return;
+    }
+    $key = substr(sha1(basename($sourcePath)), 0, 12);
+    foreach ([480, 960] as $width) {
+        if (imagesx($source) < $width) {
+            continue;
+        }
+        $resized = resize_image_resource($source, $width, imagesy($source), 'fit');
+        if ($resized) {
+            @imagewebp($resized, $dir . '/' . $key . '-' . $width . '.webp', 78);
+            imagedestroy($resized);
+        }
+    }
+    imagedestroy($source);
 }
 
 function store_original_upload(string $tmp, string $originalName, string $mime): ?string
@@ -1618,6 +1652,30 @@ function image_src(?string $path): string
     }
 
     return $path;
+}
+
+function responsive_image_srcset(?string $path): string
+{
+    $src = image_src($path);
+    if (!str_starts_with($src, '/uploads/')) {
+        return '';
+    }
+    $key = substr(sha1(basename($src)), 0, 12);
+    $variants = [];
+    foreach ([480, 960] as $width) {
+        $variant = '/uploads/responsive/' . $key . '-' . $width . '.webp';
+        if (is_file(__DIR__ . $variant)) {
+            $variants[] = $variant . ' ' . $width . 'w';
+        }
+    }
+    if (!$variants) {
+        return '';
+    }
+    $dimensions = @getimagesize(__DIR__ . $src);
+    if ($dimensions && $dimensions[0] > 960) {
+        $variants[] = $src . ' ' . (int) $dimensions[0] . 'w';
+    }
+    return implode(', ', $variants);
 }
 
 function portfolio_url(array $item): string
@@ -1872,8 +1930,17 @@ function layout(string $title, callable $content, string $description = '', stri
     $thaiUrl = absolute_url(alternate_path('th', $current));
     $englishUrl = absolute_url(alternate_path('en', $current));
     $ogImage = absolute_url($image ?: setting('default_og_image', '/assets/img/og-default.png'));
-    $navItems = ['/' => t('home'), '/about' => t('about'), '/services' => t('services'), '/portfolio' => t('portfolio'), '/clients' => t('clients'), '/articles' => t('articles')];
+    $siteLogo = image_src(setting('site_logo', '/uploads/20260518222020-cropped-Big-Event-512p-200x200-e591625f.webp'));
+    $navItems = ['/' => t('home'), '/about' => t('about'), '/services' => t('services'), '/portfolio' => t('portfolio'), '/clients' => t('clients'), '/articles' => t('articles'), '/ecatalog' => t('ecatalog')];
     $adminUser = current_admin();
+    $isVendorLanding = $current === '/thaibanland-camp/vendors';
+    $chatLineUrl = $isVendorLanding ? VENDOR_LINE_OA_URL : setting('line_oa_url', LINE_OA_URL);
+    $chatLineLabel = $isVendorLanding
+        ? ($lang === 'en' ? 'Vendor application LINE OA' : 'LINE OA รับสมัครร้านค้า')
+        : 'LINE OA';
+    $chatGreeting = $isVendorLanding
+        ? ($lang === 'en' ? 'Interested in applying as a vendor? Contact the vendor team via LINE OA.' : 'สนใจสมัครร้านค้า ติดต่อทีมรับสมัครผ่าน LINE OA ได้เลยครับ')
+        : 'สวัสดีครับน้องบิ๊กให้บริการ สนใจติดต่อน้องบิ๊กได้เลยครับ';
     $breadcrumbItems = [
         [
             '@type' => 'ListItem',
@@ -1900,6 +1967,7 @@ function layout(string $title, callable $content, string $description = '', stri
                 'name' => setting('company_name', 'บริษัท บิ๊กอีเว้นท์ จำกัด'),
                 'alternateName' => $siteName,
                 'url' => absolute_url('/'),
+                'logo' => absolute_url($siteLogo),
                 'email' => setting('admin_contact_email', 'Contact@bigevent.co.th'),
                 'telephone' => ['061-615-2532', '085-554-9141'],
                 'address' => [
@@ -1949,7 +2017,8 @@ function layout(string $title, callable $content, string $description = '', stri
         $schema['@graph'][] = $extra;
     }
     $googleAnalyticsMeasurementId = strtoupper(trim(setting('google_analytics_measurement_id')));
-    if (!preg_match('/^G-[A-Z0-9]+$/', $googleAnalyticsMeasurementId)) {
+    if (!preg_match('/^G-[A-Z0-9]+$/', $googleAnalyticsMeasurementId)
+        || preg_match('/^(?:127\.0\.0\.1|localhost)(?::\d+)?$/', (string) ($_SERVER['HTTP_HOST'] ?? ''))) {
         $googleAnalyticsMeasurementId = '';
     }
     ?>
@@ -1981,28 +2050,9 @@ function layout(string $title, callable $content, string $description = '', stri
         <meta name="twitter:title" content="<?= e($pageTitle) ?>">
         <meta name="twitter:description" content="<?= e($description) ?>">
         <meta name="twitter:image" content="<?= e($ogImage) ?>">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            ink: '#111827',
-                            gold: '#c89b3c',
-                            coral: '#e15b4f',
-                            mist: '#f6f4ef'
-                        },
-                        boxShadow: {
-                            soft: '0 24px 80px rgba(15, 23, 42, 0.12)'
-                        }
-                    }
-                }
-            }
-        </script>
-        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+        <link rel="stylesheet" href="/assets/css/fonts.css?v=<?= filemtime(__DIR__ . '/assets/css/fonts.css') ?>">
+        <link rel="stylesheet" href="/assets/css/tailwind.generated.css?v=<?= filemtime(__DIR__ . '/assets/css/tailwind.generated.css') ?>">
+        <script src="/assets/vendor/lucide/lucide.min.js?v=1.47.0"></script>
         <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
         <script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
         <?php if ($googleAnalyticsMeasurementId !== ''): ?>
@@ -2044,16 +2094,12 @@ function layout(string $title, callable $content, string $description = '', stri
     <body class="flex min-h-screen flex-col bg-mist text-slate-900 antialiased">
         <header id="siteHeader" class="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-white shadow-sm">
             <nav class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-                <a href="<?= e(url_for('/')) ?>" class="flex items-center gap-3">
-                    <span class="grid h-10 w-10 place-items-center overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                        <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png')) ?>" alt="Big Event Logo" class="h-10 w-10 object-contain">
-                    </span>
-                    <span>
-                        <span class="block text-sm font-extrabold tracking-wide">Bigevent</span>
-                        <span class="block text-[11px] font-medium text-slate-500">Event Organizer</span>
+                <a href="<?= e(url_for('/')) ?>" class="flex shrink-0 items-center" aria-label="Bigevent Organizer">
+                    <span class="site-logo-wordmark site-logo-wordmark--header">
+                        <img src="<?= e($siteLogo) ?>" alt="Bigevent Organizer">
                     </span>
                 </a>
-                <div class="hidden items-center gap-7 md:flex">
+                <div class="hidden items-center gap-5 md:flex lg:gap-6">
                     <?php foreach ($navItems as $href => $label): ?>
                         <a class="text-sm font-semibold <?= $current === $href ? 'text-coral' : 'text-slate-600 hover:text-slate-950' ?>" href="<?= e(url_for($href)) ?>"><?= e($label) ?></a>
                     <?php endforeach; ?>
@@ -2112,14 +2158,11 @@ function layout(string $title, callable $content, string $description = '', stri
         <footer class="mt-auto bg-slate-950 px-4 py-12 text-white">
             <div class="mx-auto grid max-w-7xl gap-8 md:grid-cols-2 lg:grid-cols-[1.25fr_.7fr_.9fr_1.05fr]">
                 <div>
-                    <div class="mb-4 flex items-center gap-3">
-                        <span class="grid h-11 w-11 place-items-center overflow-hidden rounded-2xl bg-white">
-                            <img src="<?= e(image_src('https://www.bigevent.co.th/wp-content/uploads/2024/04/cropped-Big-Event-512p.png')) ?>" alt="Big Event Logo" class="h-11 w-11 object-contain">
+                    <div class="mb-4">
+                        <span class="site-logo-wordmark site-logo-wordmark--footer">
+                            <img src="<?= e($siteLogo) ?>" alt="Bigevent Organizer">
                         </span>
-                        <div>
-                            <div class="font-extrabold">Bigevent Organizer</div>
-                            <div class="text-sm text-slate-400">Design. Produce. Deliver.</div>
-                        </div>
+                        <div class="mt-2 text-sm text-slate-400">Design. Produce. Deliver.</div>
                     </div>
                     <p class="max-w-md text-sm leading-7 text-slate-400"><?= e(t('footer_desc')) ?></p>
                     <div class="mt-5 flex flex-wrap gap-3">
@@ -2218,14 +2261,14 @@ function layout(string $title, callable $content, string $description = '', stri
                     <div class="flex items-start gap-3">
                         <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gold text-sm font-extrabold text-slate-950">BE</span>
                         <div>
-                            <p class="text-sm font-extrabold">น้องบิ๊ก</p>
-                            <p class="mt-1 text-sm leading-6 text-slate-300">สวัสดีครับน้องบิ๊กให้บริการ สนใจติดต่อน้องบิ๊กได้เลยครับ</p>
+                            <p class="text-sm font-extrabold"><?= $isVendorLanding ? ($lang === 'en' ? 'Vendor Team' : 'ทีมรับสมัครร้านค้า') : 'น้องบิ๊ก' ?></p>
+                            <p class="mt-1 text-sm leading-6 text-slate-300"><?= e($chatGreeting) ?></p>
                         </div>
                     </div>
                 </div>
                 <div class="grid gap-2 p-4">
-                    <a href="<?= e(setting('line_oa_url', LINE_OA_URL)) ?>" target="_blank" rel="noopener" class="inline-flex items-center justify-between rounded-2xl bg-[#06c755] px-4 py-3 text-sm font-extrabold text-white hover:opacity-90">
-                        <span class="inline-flex items-center gap-2"><i data-lucide="message-circle" class="h-4 w-4"></i> LINE OA</span>
+                    <a href="<?= e($chatLineUrl) ?>" target="_blank" rel="noopener" class="inline-flex items-center justify-between rounded-2xl bg-[#06c755] px-4 py-3 text-sm font-extrabold text-white hover:opacity-90">
+                        <span class="inline-flex items-center gap-2"><i data-lucide="message-circle" class="h-4 w-4"></i> <?= e($chatLineLabel) ?></span>
                         <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
                     </a>
                     <a href="tel:0616152532" class="inline-flex items-center justify-between rounded-2xl bg-slate-100 px-4 py-3 text-sm font-extrabold text-slate-900 hover:bg-slate-200">
@@ -2235,7 +2278,7 @@ function layout(string $title, callable $content, string $description = '', stri
                 </div>
             </div>
             <div id="bigChatGreeting" class="max-sm:hidden max-w-72 rounded-[1.35rem] border border-white/80 bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-700 shadow-soft ring-1 ring-slate-100">
-                สวัสดีครับน้องบิ๊กให้บริการ สนใจติดต่อน้องบิ๊กได้เลยครับ
+                <?= e($chatGreeting) ?>
             </div>
             <button id="bigChatButton" type="button" class="group relative grid h-14 w-14 place-items-center rounded-full bg-slate-950 text-white shadow-soft ring-2 ring-gold/70 transition hover:-translate-y-1 hover:bg-coral sm:flex sm:h-auto sm:w-auto sm:items-center sm:gap-3 sm:py-2 sm:pl-2 sm:pr-5 sm:ring-1 sm:ring-white/20" aria-controls="bigChatPanel" aria-expanded="false" aria-label="เปิดช่องทางติดต่อน้องบิ๊ก">
                 <span class="grid h-11 w-11 place-items-center rounded-full bg-gold text-slate-950 transition group-hover:bg-white sm:h-12 sm:w-12">
@@ -2485,6 +2528,15 @@ function layout(string $title, callable $content, string $description = '', stri
                     if (!slides.length) return;
                     current = (index + slides.length) % slides.length;
                     slides.forEach((slide, i) => {
+                        if (i === current) {
+                            const image = slide.querySelector('img[data-src]');
+                            if (image) {
+                                image.src = image.dataset.src;
+                                if (image.dataset.srcset) image.srcset = image.dataset.srcset;
+                                delete image.dataset.src;
+                                delete image.dataset.srcset;
+                            }
+                        }
                         slide.classList.toggle('opacity-100', i === current);
                         slide.classList.toggle('opacity-0', i !== current);
                     });
@@ -2538,6 +2590,7 @@ function admin_layout(string $title, callable $content): void
         '/admin/portfolio' => ['ผลงาน', 'briefcase-business'],
         '/admin/clients' => ['โลโก้ลูกค้า', 'handshake'],
         '/admin/articles' => ['บทความ', 'newspaper'],
+        '/admin/ecatalog' => ['E-Catalog', 'book-open'],
         '/admin/crm' => ['CRM ลูกค้า', 'message-square-text'],
         '/admin/contest' => ['สมัครประกวด', 'music-2'],
         '/admin/tools' => ['เครื่องมือ', 'wrench'],
@@ -2557,12 +2610,10 @@ function admin_layout(string $title, callable $content): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> | Admin</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-        <link rel="stylesheet" href="/assets/css/app.css">
+        <link rel="stylesheet" href="/assets/css/fonts.css?v=<?= filemtime(__DIR__ . '/assets/css/fonts.css') ?>">
+        <link rel="stylesheet" href="/assets/css/tailwind.generated.css?v=<?= filemtime(__DIR__ . '/assets/css/tailwind.generated.css') ?>">
+        <script src="/assets/vendor/lucide/lucide.min.js?v=1.47.0"></script>
+        <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
     </head>
     <body class="bg-slate-100 text-slate-900 antialiased">
         <div class="min-h-screen lg:grid lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
@@ -2944,7 +2995,8 @@ function home_page(): void
             <div class="absolute inset-0">
                 <?php foreach ($heroSlides as $index => $slide): ?>
                     <div class="absolute inset-0 transition-opacity duration-700 <?= $index === 0 ? 'opacity-100' : 'opacity-0' ?>" data-home-hero-slide>
-                        <img src="<?= e(image_src($slide['image_path'] ?? null)) ?>" alt="<?= e(localized($slide, 'title')) ?>" class="h-full w-full object-cover">
+                        <?php $slideImage = image_src($slide['image_path'] ?? null); $slideSrcset = responsive_image_srcset($slide['image_path'] ?? null); ?>
+                        <img <?= $index === 0 ? 'src="' . e($slideImage) . '"' : 'data-src="' . e($slideImage) . '"' ?> <?= $slideSrcset !== '' ? ($index === 0 ? 'srcset' : 'data-srcset') . '="' . e($slideSrcset) . '"' : '' ?> sizes="100vw" alt="<?= e(localized($slide, 'title')) ?>" class="h-full w-full object-cover" <?= $index === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"' ?>>
                     </div>
                 <?php endforeach; ?>
                 <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,.94)_0%,rgba(2,6,23,.74)_38%,rgba(2,6,23,.18)_70%),linear-gradient(0deg,rgba(2,6,23,.82),rgba(2,6,23,.06)_46%,rgba(2,6,23,.42))]"></div>
@@ -3010,7 +3062,7 @@ function home_page(): void
                         <div class="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-3 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8" data-home-work-strip>
                             <?php foreach ($portfolios as $item): ?>
                                 <a href="<?= portfolio_url($item) ?>" class="group relative h-52 w-52 shrink-0 snap-start overflow-hidden rounded-2xl bg-slate-800 shadow-soft ring-1 ring-white/10 sm:h-60 sm:w-72">
-                                    <img src="<?= e(image_src($item['image_path'])) ?>" alt="<?= e(localized($item, 'title')) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+                                    <img src="<?= e(image_src($item['image_path'])) ?>" srcset="<?= e(responsive_image_srcset($item['image_path'])) ?>" sizes="(max-width: 640px) 208px, 288px" alt="<?= e(localized($item, 'title')) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" decoding="async">
                                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/88 via-slate-950/20 to-transparent"></div>
                                     <div class="absolute inset-x-0 bottom-0 p-4">
                                         <p class="line-clamp-1 text-xs font-extrabold uppercase tracking-wider text-gold"><?= e(localized($item, 'category')) ?></p>
@@ -3025,7 +3077,7 @@ function home_page(): void
         </section>
 
         <section class="hidden">
-            <img src="<?= e(image_src($banner['image_path'] ?? null)) ?>" alt="Event hero" class="absolute inset-0 h-full w-full object-cover opacity-70">
+            <img src="<?= e(image_src($banner['image_path'] ?? null)) ?>" alt="Event hero" class="absolute inset-0 h-full w-full object-cover opacity-70" loading="lazy" decoding="async">
             <div class="absolute inset-0 bg-[radial-gradient(circle_at_78%_22%,rgba(200,155,60,.42),transparent_28%),radial-gradient(circle_at_20%_75%,rgba(20,184,166,.24),transparent_26%),linear-gradient(105deg,rgba(2,6,23,.96),rgba(15,23,42,.80)_48%,rgba(127,29,29,.54))]"></div>
             <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-950/85 to-transparent"></div>
             <div class="relative mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl items-center px-4 py-20 sm:px-6 lg:px-8">
@@ -3091,61 +3143,7 @@ function home_page(): void
             </div>
         </section>
 
-        <section class="bg-slate-950 px-4 py-12 text-white sm:px-6 lg:px-8">
-            <div class="mx-auto max-w-7xl space-y-6">
-                <a href="<?= e(url_for('/thaibanland-camp/vendors')) ?>" class="group grid overflow-hidden rounded-[2rem] border border-orange-200/20 bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,.24),transparent_38%),linear-gradient(135deg,#28100b,#120b0d)] shadow-soft lg:grid-cols-[1fr_320px]">
-                    <div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
-                        <div class="inline-flex w-fit items-center gap-2 rounded-full border border-orange-300/30 bg-orange-300/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.22em] text-orange-200">
-                            <i data-lucide="store" class="h-4 w-4"></i>
-                            <?= current_lang() === 'en' ? 'Vendor applications open' : 'เปิดรับสมัครร้านค้า' ?>
-                        </div>
-                        <h2 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">
-                            <?= current_lang() === 'en' ? 'Bring your shop to Thaibanland Camp 2026.' : 'พาร้านของคุณมาเจอกับคนในไทบ้านแลนด์แคมป์' ?>
-                        </h2>
-                        <p class="mt-4 max-w-2xl text-base leading-8 text-slate-300">
-                            <?= current_lang() === 'en' ? 'Apply for food, general-product and food-truck zones through the official vendor LINE OA.' : 'สมัครบูธอาหาร สินค้าทั่วไป และฟู้ดทรัค พร้อมดูรายละเอียดค่าใช้จ่ายและเพิ่มเพื่อน LINE OA สำหรับร้านค้า' ?>
-                        </p>
-                        <span class="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-[#06c755] px-5 py-3 text-sm font-extrabold text-white transition group-hover:-translate-y-0.5 group-hover:bg-[#05b94f]">
-                            <?= current_lang() === 'en' ? 'View vendor application' : 'ดูรายละเอียดและสมัครร้านค้า' ?>
-                            <i data-lucide="arrow-right" class="h-4 w-4"></i>
-                        </span>
-                    </div>
-                    <div class="relative min-h-72 overflow-hidden border-t border-white/10 lg:border-l lg:border-t-0">
-                        <img src="/assets/img/thaibanland-camp-vendors-line-3007.jpg" alt="<?= current_lang() === 'en' ? 'Thaibanland Camp vendor application' : 'เปิดรับสมัครร้านค้า ไทบ้านแลนด์แคมป์' ?>" class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy">
-                        <div class="absolute inset-0 bg-gradient-to-r from-[#120b0d]/70 via-transparent to-transparent lg:bg-gradient-to-l lg:from-transparent lg:to-[#120b0d]/25"></div>
-                    </div>
-                </a>
-
-                <a href="<?= e(url_for('/ecatalog-sisaket')) ?>" class="group grid overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,.28),transparent_38%),linear-gradient(135deg,#172033,#020617)] shadow-soft lg:grid-cols-[1fr_280px]">
-                <div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
-                    <div class="inline-flex w-fit items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.22em] text-gold">
-                        <i data-lucide="book-open" class="h-4 w-4"></i>
-                        E-Catalog Sisaket
-                    </div>
-                    <h2 class="mt-5 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">
-                        <?= current_lang() === 'en' ? 'Explore Sisaket businesses in an interactive catalog.' : 'เปิดโลกธุรกิจศรีสะเกษผ่านแคตตาล็อกแบบพลิกหน้า' ?>
-                    </h2>
-                    <p class="mt-4 max-w-2xl text-base leading-8 text-slate-300">
-                        <?= current_lang() === 'en' ? 'Browse the digital catalog like a real book, with full-screen viewing on desktop and mobile.' : 'เลือกชมอีแคตตาล็อกเสมือนหนังสือจริง พลิกดูได้ทุกหน้า พร้อมโหมดเต็มหน้าจอทั้งคอมพิวเตอร์และมือถือ' ?>
-                    </p>
-                    <span class="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition group-hover:bg-gold">
-                        <?= current_lang() === 'en' ? 'Open e-catalog' : 'เปิดอีแคตตาล็อก' ?>
-                        <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
-                    </span>
-                </div>
-                <div class="relative hidden min-h-72 overflow-hidden border-l border-white/10 lg:block">
-                    <div class="absolute left-1/2 top-1/2 h-48 w-36 -translate-x-[68%] -translate-y-1/2 -rotate-6 rounded-r-xl border border-white/15 bg-gradient-to-br from-white/20 to-white/5 shadow-2xl transition duration-500 group-hover:-translate-x-[72%] group-hover:-rotate-12"></div>
-                    <div class="absolute left-1/2 top-1/2 grid h-52 w-40 -translate-x-[32%] -translate-y-1/2 rotate-3 place-items-center rounded-r-xl border border-gold/35 bg-gradient-to-br from-[#f59e0b] via-[#ea580c] to-[#9f1239] p-6 text-center shadow-2xl transition duration-500 group-hover:-translate-x-[26%] group-hover:rotate-6">
-                        <div>
-                            <i data-lucide="map-pinned" class="mx-auto h-9 w-9 text-white"></i>
-                            <p class="mt-4 text-xs font-black uppercase tracking-[0.18em] text-white/75">E-Catalog</p>
-                            <p class="mt-2 text-xl font-black text-white">SISAKET</p>
-                        </div>
-                    </div>
-                </div>
-            </a>
-            </div>
-        </section>
+        <?php render_home_ecatalog_section(); ?>
 
         <section class="bg-[#f3f0ea] px-4 py-20 sm:px-6 lg:px-8">
             <div class="mx-auto max-w-7xl">
@@ -3160,7 +3158,7 @@ function home_page(): void
                     <?php foreach (array_slice($portfolios, 0, 3) as $index => $item): ?>
                         <a href="<?= portfolio_url($item) ?>" class="group overflow-hidden rounded-[1.5rem] bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-soft <?= $index === 0 ? 'lg:col-span-1' : '' ?>">
                             <div class="<?= $index === 0 ? 'aspect-[4/3]' : 'aspect-[4/3]' ?> overflow-hidden">
-                                <img src="<?= e(image_src($item['image_path'])) ?>" alt="<?= e(localized($item, 'title')) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105">
+                                <img src="<?= e(image_src($item['image_path'])) ?>" srcset="<?= e(responsive_image_srcset($item['image_path'])) ?>" sizes="(max-width: 1024px) 100vw, 33vw" alt="<?= e(localized($item, 'title')) ?>" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" loading="lazy" decoding="async">
                             </div>
                             <div class="p-6">
                                 <div class="mb-4 flex items-center justify-between gap-3">
@@ -3186,7 +3184,7 @@ function home_page(): void
                 </div>
                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                     <?php foreach ($clients as $client): ?>
-                        <?= client_card($client) ?>
+                        <?= client_card($client, true) ?>
                     <?php endforeach; ?>
                 </div>
                 <div class="mt-8 text-center">
@@ -3209,7 +3207,7 @@ function home_page(): void
                 </div>
                 <div class="grid gap-5 md:grid-cols-3">
                     <?php foreach (array_slice($articles, 0, 3) as $article): ?>
-                        <?= article_card($article) ?>
+                        <?= article_card($article, true) ?>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -3218,14 +3216,14 @@ function home_page(): void
     }, $lang === 'en' ? 'Bigevent Organizer is a full-service event company for corporate events, product launches, exhibitions and organizational events from concept to show day.' : 'Bigevent Organizer บริษัทรับจัดงานอีเวนต์ครบวงจร ดูแล Corporate Event, Product Launch, Exhibition และงานองค์กรตั้งแต่คอนเซ็ปต์ถึงวันจริง', $banner['image_path'] ?? '');
 }
 
-function article_card(array $article): string
+function article_card(array $article, bool $lazy = false): string
 {
     ob_start();
     $title = localized($article, 'title');
     $excerpt = localized($article, 'excerpt');
     ?>
     <article class="overflow-hidden rounded-[1.5rem] bg-white shadow-sm ring-1 ring-slate-100">
-        <img src="<?= e(image_src($article['image_path'])) ?>" alt="<?= e($title) ?>" class="h-48 w-full object-cover">
+        <img src="<?= e(image_src($article['image_path'])) ?>" srcset="<?= e(responsive_image_srcset($article['image_path'])) ?>" sizes="(max-width: 768px) 100vw, 33vw" alt="<?= e($title) ?>" class="h-48 w-full object-cover" <?= $lazy ? 'loading="lazy" decoding="async"' : '' ?>>
         <div class="p-6">
             <p class="text-xs font-bold uppercase tracking-wider text-slate-400"><?= e($article['published_at'] ?: $article['created_at']) ?></p>
             <h3 class="mt-2 text-lg font-extrabold leading-snug"><?= e($title) ?></h3>
@@ -3237,18 +3235,18 @@ function article_card(array $article): string
     return ob_get_clean();
 }
 
-function client_card(array $client): string
+function client_card(array $client, bool $lazy = false): string
 {
     ob_start();
     $name = localized($client, 'name');
     $website = trim((string) ($client['website'] ?? ''));
     $tag = current_lang() === 'en' ? 'Client / Partner' : 'ลูกค้า / พาร์ทเนอร์';
-    $card = function () use ($client, $name, $tag) {
+    $card = function () use ($client, $name, $tag, $lazy) {
         ?>
         <div class="group flex min-h-28 items-center gap-4 rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4 transition hover:-translate-y-1 hover:border-gold/30 hover:bg-white hover:shadow-soft">
             <div class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100">
                 <?php if (!empty($client['logo_path'])): ?>
-                    <img src="<?= e($client['logo_path']) ?>" alt="<?= e($name) ?>" class="max-h-12 max-w-full object-contain">
+                    <img src="<?= e($client['logo_path']) ?>" alt="<?= e($name) ?>" class="max-h-12 max-w-full object-contain" <?= $lazy ? 'loading="lazy" decoding="async"' : '' ?>>
                 <?php else: ?>
                     <span class="text-sm font-extrabold text-coral"><?= e(mb_substr($name, 0, 2)) ?></span>
                 <?php endif; ?>
@@ -4352,54 +4350,9 @@ function contest_page(): void
 
 function ecatalog_sisaket_page(): void
 {
-    $lang = current_lang();
-    $isEn = $lang === 'en';
-    $pagePath = '/ecatalog-sisaket';
-    $bookUrl = 'https://online.fliphtml5.com/eppkb/egfq/';
-    $title = $isEn ? 'E-Catalog Sisaket' : 'อีแคตตาล็อก ศรีสะเกษ';
-    $description = $isEn
-        ? 'Browse the Sisaket e-catalog online in an interactive page-flip format.'
-        : 'เปิดชมอีแคตตาล็อกศรีสะเกษออนไลน์ในรูปแบบหนังสือพลิกหน้า';
-
-    set_alternate_paths($pagePath, '/en' . $pagePath);
-    set_schema_extra([
-        [
-            '@type' => 'CreativeWork',
-            'name' => $title,
-            'description' => $description,
-            'url' => absolute_url(localized_url($lang, $pagePath)),
-            'inLanguage' => $isEn ? 'en' : 'th',
-        ],
-    ]);
-
-    layout($title, function () use ($isEn, $bookUrl): void {
-        ?>
-        <main class="bg-slate-950">
-            <section class="border-b border-white/10 bg-slate-950 px-5 py-6 text-white sm:px-8">
-                <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[.22em] text-coral">E-CATALOG SISAKET</p>
-                        <h1 class="mt-2 text-2xl font-black sm:text-3xl"><?= $isEn ? 'Sisaket E-Catalog' : 'อีแคตตาล็อก ศรีสะเกษ' ?></h1>
-                    </div>
-                    <a href="<?= e($bookUrl) ?>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-white/15">
-                        <i data-lucide="maximize-2" class="h-4 w-4"></i>
-                        <?= $isEn ? 'Open full screen' : 'เปิดเต็มหน้าจอ' ?>
-                    </a>
-                </div>
-            </section>
-            <section class="mx-auto max-w-[1600px] bg-[#202124]">
-                <iframe
-                    src="<?= e($bookUrl) ?>"
-                    title="<?= $isEn ? 'Sisaket E-Catalog' : 'อีแคตตาล็อก ศรีสะเกษ' ?>"
-                    class="block h-[calc(100dvh-8rem)] min-h-[680px] w-full border-0"
-                    loading="eager"
-                    allow="fullscreen"
-                    allowfullscreen
-                ></iframe>
-            </section>
-        </main>
-        <?php
-    }, $description);
+    $target = localized_url(current_lang(), '/ecatalog/sisaket-business-2026');
+    header('Location: ' . $target, true, 301);
+    exit;
 }
 
 function thaibanland_vendor_page(): void
@@ -4407,7 +4360,7 @@ function thaibanland_vendor_page(): void
     $lang = current_lang();
     $isEn = $lang === 'en';
     $pagePath = '/thaibanland-camp/vendors';
-    $lineUrl = 'https://lin.ee/Woss7Bo';
+    $lineUrl = VENDOR_LINE_OA_URL;
 
     $title = $isEn
         ? 'Vendor Registration | Thaibanland Camp 2026'
@@ -4892,8 +4845,8 @@ function robots_txt()
 function sitemap_xml()
 {
     $urls = [];
-    foreach (['/', '/fresh-beat-cover-dance-contest', '/ecatalog-sisaket', '/thaibanland-camp/vendors', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
-        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/fresh-beat-cover-dance-contest', '/ecatalog-sisaket', '/thaibanland-camp/vendors', '/services', '/portfolio'], true) ? '0.9' : '0.8');
+    foreach (['/', '/fresh-beat-cover-dance-contest', '/ecatalog', '/thaibanland-camp/vendors', '/about', '/services', '/portfolio', '/clients', '/articles', '/contact', '/privacy-policy', '/cookie-policy'] as $staticPath) {
+        $priority = $staticPath === '/' ? '1.0' : (in_array($staticPath, ['/fresh-beat-cover-dance-contest', '/ecatalog', '/thaibanland-camp/vendors', '/services', '/portfolio'], true) ? '0.9' : '0.8');
         $changefreq = in_array($staticPath, ['/', '/fresh-beat-cover-dance-contest', '/thaibanland-camp/vendors', '/portfolio', '/articles'], true) ? 'weekly' : 'monthly';
         $alternates = [
             'th-TH' => absolute_url(localized_url('th', $staticPath)),
@@ -4952,6 +4905,24 @@ function sitemap_xml()
         }
     }
 
+    $ecatalogStmt = db()->query("SELECT slug, slug_en, updated_at FROM ecatalogs WHERE is_published = 1 ORDER BY sort_order ASC, id DESC");
+    foreach ($ecatalogStmt->fetchAll() as $catalog) {
+        $alternates = [
+            'th-TH' => absolute_url('/ecatalog/' . $catalog['slug']),
+            'en' => absolute_url('/en/ecatalog/' . ($catalog['slug_en'] ?: $catalog['slug'])),
+            'x-default' => absolute_url('/ecatalog/' . $catalog['slug']),
+        ];
+        foreach (['th-TH', 'en'] as $language) {
+            $urls[] = [
+                'loc' => $alternates[$language],
+                'priority' => '0.8',
+                'changefreq' => 'monthly',
+                'lastmod' => date('Y-m-d', strtotime($catalog['updated_at'] ?: 'now')),
+                'alternates' => $alternates,
+            ];
+        }
+    }
+
     header('Content-Type: application/xml; charset=UTF-8');
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
     echo "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\" xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">\n";
@@ -4985,8 +4956,9 @@ function login_page(): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Admin Login | <?= APP_NAME ?></title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link rel="stylesheet" href="/assets/css/app.css">
+        <link rel="stylesheet" href="/assets/css/fonts.css?v=<?= filemtime(__DIR__ . '/assets/css/fonts.css') ?>">
+        <link rel="stylesheet" href="/assets/css/tailwind.generated.css?v=<?= filemtime(__DIR__ . '/assets/css/tailwind.generated.css') ?>">
+        <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime(__DIR__ . '/assets/css/app.css') ?>">
     </head>
     <body class="grid min-h-screen place-items-center bg-slate-950 p-4 text-white">
         <form method="post" action="/admin/login" class="w-full max-w-md rounded-[2rem] border border-white/10 bg-white p-8 text-slate-950 shadow-2xl">
@@ -5046,13 +5018,14 @@ function admin_dashboard(): void
             ['ผลงาน', (int) db()->query("SELECT COUNT(*) FROM portfolios")->fetchColumn(), 'briefcase-business'],
             ['โลโก้ลูกค้า', (int) db()->query("SELECT COUNT(*) FROM clients")->fetchColumn(), 'handshake'],
             ['บทความ', (int) db()->query("SELECT COUNT(*) FROM articles")->fetchColumn(), 'newspaper'],
+            ['E-Catalog', (int) db()->query("SELECT COUNT(*) FROM ecatalogs")->fetchColumn(), 'book-open'],
             ['CRM ลูกค้า', (int) db()->query("SELECT COUNT(*) FROM inquiries")->fetchColumn(), 'message-square-text'],
             ['สมัครประกวด', (int) db()->query("SELECT COUNT(*) FROM contest_entries")->fetchColumn(), 'music-2'],
             ['เครื่องมือ', 0, 'wrench'],
             ['ผู้ใช้งาน', (int) db()->query("SELECT COUNT(*) FROM users")->fetchColumn(), 'users'],
         ];
         ?>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             <?php foreach ($stats as [$label, $count, $icon]): ?>
                 <div class="min-w-0 rounded-[1.5rem] bg-white p-6 shadow-sm">
                     <div class="mb-5 grid h-11 w-11 place-items-center rounded-2xl bg-slate-100"><i data-lucide="<?= $icon ?>" class="h-5 w-5"></i></div>
@@ -5063,7 +5036,7 @@ function admin_dashboard(): void
         </div>
         <div class="mt-8 rounded-[1.5rem] bg-white p-6 shadow-sm">
             <h2 class="text-xl font-extrabold">เริ่มจัดการเว็บ</h2>
-            <p class="mt-2 text-sm leading-7 text-slate-600">ใช้เมนูด้านซ้ายเพื่อเพิ่ม/แก้ไขแบนเนอร์ ผลงาน โลโก้ลูกค้า บทความ CRM และระบบสมัครประกวด คอนเทนต์ที่เปิดเผยแพร่จะไปแสดงบนหน้าบ้านทันที</p>
+            <p class="mt-2 text-sm leading-7 text-slate-600">ใช้เมนูด้านซ้ายเพื่อจัดการแบนเนอร์ ผลงาน โลโก้ลูกค้า บทความ E-Catalog, CRM และระบบสมัครประกวด คอนเทนต์ที่เปิดเผยแพร่จะไปแสดงบนหน้าบ้านทันที</p>
         </div>
         <?php
     });
@@ -5960,7 +5933,7 @@ function download_backup()
 function database_dump_sql(): string
 {
     $pdo = db();
-    $tables = ['users', 'banners', 'portfolios', 'clients', 'articles', 'gallery_images', 'inquiries', 'contest_entries', 'system_settings'];
+    $tables = ['users', 'banners', 'portfolios', 'clients', 'articles', 'ecatalogs', 'gallery_images', 'inquiries', 'contest_entries', 'system_settings'];
     $sql = "-- Bigevent database backup\n-- Generated: " . date('c') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
 
     foreach ($tables as $table) {
@@ -7058,6 +7031,15 @@ function redirect_short_link(string $lang, string $type, int $id)
         redirect(localized_url($lang, '/articles/' . $slug));
     }
 
+    if ($type === 'e') {
+        $catalog = find_row('ecatalogs', $id);
+        if (!$catalog || (int) ($catalog['is_published'] ?? 0) !== 1) {
+            not_found();
+        }
+        $slug = $lang === 'en' ? (($catalog['slug_en'] ?? '') ?: ($catalog['slug'] ?? $id)) : (($catalog['slug'] ?? '') ?: $id);
+        redirect(localized_url($lang, '/ecatalog/' . $slug));
+    }
+
     not_found();
 }
 
@@ -7108,6 +7090,8 @@ function not_found()
     exit;
 }
 
+require_once __DIR__ . '/ecatalog-module.php';
+
 db();
 $path = route_path();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -7118,7 +7102,7 @@ if ($path === '/') {
     robots_txt();
 } elseif ($path === '/sitemap.xml') {
     sitemap_xml();
-} elseif (preg_match('#^/s/(th|en)/(p|a)/(\d+)$#', $path, $m)) {
+} elseif (preg_match('#^/s/(th|en)/(p|a|e)/(\d+)$#', $path, $m)) {
     redirect_short_link($m[1], $m[2], (int) $m[3]);
 } elseif ($path === '/fresh-beat-cover-dance-contest' && $method === 'POST') {
     handle_contest_registration();
@@ -7126,6 +7110,14 @@ if ($path === '/') {
     contest_page();
 } elseif ($path === '/ecatalog-sisaket') {
     ecatalog_sisaket_page();
+} elseif ($path === '/ecatalog') {
+    ecatalog_index_page();
+} elseif (preg_match('#^/ecatalog/([^/]+)/pdf$#', $path, $m)) {
+    serve_ecatalog_pdf($m[1]);
+} elseif (preg_match('#^/ecatalog/([^/]+)/download$#', $path, $m)) {
+    download_ecatalog_pdf($m[1]);
+} elseif (preg_match('#^/ecatalog/([^/]+)$#', $path, $m)) {
+    ecatalog_detail_page($m[1]);
 } elseif ($path === '/thaibanland-camp/vendors') {
     thaibanland_vendor_page();
 } elseif ($path === '/about') {
@@ -7186,6 +7178,16 @@ if ($path === '/') {
     update_contest_entry();
 } elseif ($path === '/admin/contest/delete' && $method === 'POST') {
     delete_contest_entry();
+} elseif ($path === '/admin/ecatalog') {
+    admin_ecatalogs();
+} elseif ($path === '/admin/ecatalog/new') {
+    admin_ecatalog_form();
+} elseif ($path === '/admin/ecatalog/edit') {
+    admin_ecatalog_form((int) ($_GET['id'] ?? 0));
+} elseif ($path === '/admin/ecatalog/save' && $method === 'POST') {
+    save_ecatalog();
+} elseif ($path === '/admin/ecatalog/delete' && $method === 'POST') {
+    delete_ecatalog();
 } elseif ($path === '/admin/tools') {
     admin_tools();
 } elseif ($path === '/admin/settings' && $method === 'POST') {
