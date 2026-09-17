@@ -493,16 +493,38 @@ function download_ecatalog_pdf(string $slug): void
 
 function render_home_ecatalog_section(): void
 {
-    $catalogs = db()->query("SELECT * FROM ecatalogs WHERE is_published = 1 AND is_featured = 1 ORDER BY sort_order ASC, published_at DESC, id DESC LIMIT 3")->fetchAll();
+    $catalogs = db()->query("SELECT * FROM ecatalogs WHERE is_published = 1 AND is_featured = 1 ORDER BY sort_order ASC, published_at DESC, id DESC LIMIT 6")->fetchAll();
     if (!$catalogs) {
         return;
     }
     $lang = current_lang();
     ?>
-    <section class="bg-slate-950 px-4 py-14 text-white sm:px-6 lg:px-8">
+    <section class="ecatalog-home-section bg-slate-950 px-4 py-16 text-white sm:px-6 lg:px-8" aria-labelledby="home-ecatalog-heading">
         <div class="mx-auto max-w-7xl">
-            <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p class="text-sm font-black uppercase tracking-[.25em] text-gold">Digital publications</p><h2 class="mt-3 text-3xl font-black sm:text-4xl"><?= $lang === 'en' ? 'Featured E-Catalogs' : 'E-Catalog แนะนำ' ?></h2></div><a href="<?= e(url_for('/ecatalog')) ?>" class="inline-flex items-center gap-2 text-sm font-extrabold text-white hover:text-gold"><?= $lang === 'en' ? 'View all catalogs' : 'ดู E-Catalog ทั้งหมด' ?><i data-lucide="arrow-right" class="h-4 w-4"></i></a></div>
-            <div class="mt-8 grid gap-6 <?= count($catalogs) === 1 ? '' : 'md:grid-cols-2 xl:grid-cols-3' ?>"><?php foreach ($catalogs as $catalog): ?><a href="<?= e(ecatalog_url($catalog)) ?>" class="group grid overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,.22),transparent_42%),linear-gradient(135deg,#172033,#020617)] shadow-soft <?= count($catalogs) === 1 ? 'lg:grid-cols-[1fr_360px]' : '' ?>"><div class="flex flex-col justify-center p-7 sm:p-9"><p class="text-xs font-black uppercase tracking-[.2em] text-gold">E-Catalog<?= !empty($catalog['publication_year']) ? ' · ' . (int) $catalog['publication_year'] : '' ?></p><h3 class="mt-4 text-2xl font-black leading-tight sm:text-3xl"><?= e(ecatalog_localized($catalog, 'title')) ?></h3><p class="mt-3 line-clamp-2 text-sm leading-7 text-slate-300"><?= e(ecatalog_localized($catalog, 'description')) ?></p><span class="mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-white group-hover:text-gold"><?= $lang === 'en' ? 'Open catalog' : 'เปิดอีแคตตาล็อก' ?><i data-lucide="arrow-up-right" class="h-4 w-4"></i></span></div><?= ecatalog_book_mockup($catalog, 'home') ?></a><?php endforeach; ?></div>
+            <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+                <div>
+                    <p class="text-sm font-black uppercase tracking-[.25em] text-gold">Digital publications</p>
+                    <h2 id="home-ecatalog-heading" class="mt-3 text-3xl font-black sm:text-4xl"><?= $lang === 'en' ? 'Explore our E-Catalogs' : 'ชั้นหนังสือ E-Catalog' ?></h2>
+                    <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-300"><?= $lang === 'en' ? 'Choose a cover and flip through each book on our website.' : 'เลือกปกที่สนใจ แล้วเปิดอ่านแบบพลิกหน้าได้บนเว็บไซต์ของเรา' ?></p>
+                </div>
+                <a href="<?= e(url_for('/ecatalog')) ?>" class="inline-flex shrink-0 items-center gap-2 text-sm font-extrabold text-white hover:text-gold"><?= $lang === 'en' ? 'View all catalogs' : 'ดู E-Catalog ทั้งหมด' ?><i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+            </div>
+            <div class="ecatalog-home-shelf mt-10">
+                <?php foreach ($catalogs as $catalog): ?>
+                    <?php $title = ecatalog_localized($catalog, 'title'); $client = ecatalog_localized($catalog, 'client_name'); ?>
+                    <a href="<?= e(ecatalog_url($catalog)) ?>" class="ecatalog-home-item group" aria-label="<?= e(($lang === 'en' ? 'Open ' : 'เปิด ') . $title) ?>">
+                        <span class="ecatalog-home-item__display">
+                            <?= ecatalog_book_mockup($catalog, 'home') ?>
+                        </span>
+                        <span class="ecatalog-home-item__meta">
+                            <span class="ecatalog-home-item__eyebrow">E-Catalog<?= !empty($catalog['publication_year']) ? ' · ' . (int) $catalog['publication_year'] : '' ?></span>
+                            <span class="ecatalog-home-item__title"><?= e($title) ?></span>
+                            <?php if ($client !== ''): ?><span class="ecatalog-home-item__client"><?= e($client) ?></span><?php endif; ?>
+                            <span class="ecatalog-home-item__action"><?= $lang === 'en' ? 'Open book' : 'เปิดอ่านหนังสือ' ?><i data-lucide="arrow-up-right" class="h-4 w-4"></i></span>
+                        </span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
         </div>
     </section>
     <?php
